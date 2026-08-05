@@ -208,7 +208,8 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
                     val attackRange = if (unit.card.isRanged) 160f else 55f
                     if (d > attackRange) {
                         val spd = unit.speed * 120f * if (unit.charged) 2.5f else 1f
-                        val dx = (b.x - unit.x) / d; val dy = (b.y - unit.y) / d
+                        val nd = d.coerceAtLeast(0.01f)
+                        val dx = (b.x - unit.x) / nd; val dy = (b.y - unit.y) / nd
                         unit.x += dx * spd * dt; unit.y += dy * spd * dt
                         if (unit.charged && d < attackRange * 2f) {
                             unit.charged = false
@@ -435,8 +436,8 @@ private fun DrawScope.drawBattleBuilding(b: EnemyBuilding, elapsed: Float) {
     drawRoundRect(Color(0xFF111111),topLeft=Offset(cx-barW/2-2f,barTop-2f),size=Size(barW+4f,barH+4f),cornerRadius=CornerRadius(4f))
     val bc=if(hpRatio>0.5f) Color(0xFF4CAF50) else if(hpRatio>0.25f) Color(0xFFFFC107) else Color(0xFFEF5350)
     drawRoundRect(bc,topLeft=Offset(cx-barW/2,barTop),size=Size(barW*hpRatio.coerceIn(0f,1f),barH),cornerRadius=CornerRadius(4f))
-    titleTextPaint().apply { textSize=16f; color=android.graphics.Color.rgb(200,200,200) }
-    drawContext.canvas.nativeCanvas.drawText(b.name,cx,cy+b.h/2+16f,titleTextPaint())
+    val tp = titleTextPaint().apply { textSize=16f; color=android.graphics.Color.rgb(200,200,200) }
+    drawContext.canvas.nativeCanvas.drawText(b.name,cx,cy+b.h/2+16f,tp)
 }
 
 private fun DrawScope.drawResultOverlay(w: Float, h: Float, victory: Boolean, alpha: Float, paint: Paint) {
