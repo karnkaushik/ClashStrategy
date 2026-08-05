@@ -3,14 +3,35 @@ package com.clashgame.strategy
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -26,11 +47,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,12 +96,48 @@ fun GameScreen() {
     val guildGate = remember { GuildGate(guild) }
 
     var version by remember { mutableStateOf(0) }
+    var shakeTrigger by remember { mutableStateOf(0) }
     var message by remember { mutableStateOf("") }
     var messageColor by remember { mutableStateOf(AccentGreen) }
     var showShop by remember { mutableStateOf(false) }
     var showGate by remember { mutableStateOf(false) }
 
     val tower = player1.tower
+
+    // Animated resource & tower HP counters
+    val animatedResources by animateIntAsState(
+        targetValue = player1.resources,
+        animationSpec = tween(500)
+    )
+    val animatedTowerHp by animateIntAsState(
+        targetValue = tower.health,
+        animationSpec = tween(500)
+    )
+
+    // Idle bounce for the village tower (Clash-of-Clans style)
+    val infiniteTransition = rememberInfiniteTransition()
+    val towerBounce by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -8f,
+        animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse)
+    )
+    // Tower pulses red when low on HP
+    val towerPulse by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (tower.health <= 50) 1.25f else 1f,
+        animationSpec = infiniteRepeatable(tween(400), RepeatMode.Reverse)
+    )
+
+    // Screen shake when attacking
+    val shakeOffset = remember { Animatable(0f) }
+    LaunchedEffect(shakeTrigger) {
+        if (shakeTrigger > 0) {
+            shakeOffset.snapTo(0f)
+            for (step in listOf(-10f, 10f, -7f, 7f, 0f)) {
+                shakeOffset.animateTo(step, tween(50))
+            }
+        }
+    }
 
     Scaffold(
         containerColor = Background,
@@ -104,8 +164,21 @@ fun GameScreen() {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text("👑 ${player1.username}", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    Text("💰 Resources: ${player1.resources}", color = TextColor)
-                    Text("🏰 ${tower.name}  |  Lv ${tower.level}  |  ❤️ HP ${tower.health}", color = TextColor)
+                    Text("💰 Resources: $animatedResources", color = TextColor)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .offset(y = towerBounce.dp)
+                                .scale(towerPulse)
+                        ) {
+                            Text("🏰", fontSize = 26.sp)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "${tower.name}  |  Lv ${tower.level}  |  ❤️ HP $animatedTowerHp",
+                            color = TextColor
+                        )
+                    }
                     Text("🛡️ Army: ${player1.army.size} troops", color = TextColor)
                 }
             }
@@ -126,7 +199,11 @@ fun GameScreen() {
                 }
             }
 
-            if (message.isNotEmpty() || version > 0) {
+            AnimatedVisibility(
+                visible = message.isNotEmpty() || version > 0,
+                enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 2 },
+                exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { it / 2 }
+            ) {
                 Card(colors = CardDefaults.cardColors(containerColor = CardColor)) {
                     Text(
                         message.ifEmpty { " " },
@@ -164,6 +241,7 @@ fun GameScreen() {
                 ActionButton("⚔️ Attack", Modifier.weight(1f)) {
                     val result = player1.attackPlayer(player2)
                     version++
+                    shakeTrigger++
                     message = result
                     messageColor = AccentGreen
                 }
@@ -171,7 +249,10 @@ fun GameScreen() {
 
             ActionButton("🛒 Visit the Shop", Modifier.fillMaxWidth()) { showShop = true }
 
-            Card(colors = CardDefaults.cardColors(containerColor = CardColor)) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CardColor),
+                modifier = Modifier.offset(x = shakeOffset.value.dp)
+            ) {
                 Column(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -271,9 +352,19 @@ fun GameScreen() {
 
 @Composable
 private fun ActionButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
     Button(
         onClick = onClick,
-        modifier = modifier.height(56.dp),
+        modifier = modifier.height(56.dp).scale(scale),
+        interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(containerColor = ButtonColor)
     ) {
         Text(text, color = Color.White, fontWeight = FontWeight.Bold)
