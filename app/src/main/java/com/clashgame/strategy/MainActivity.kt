@@ -11,6 +11,13 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -142,17 +149,17 @@ private val ElementShadow = Color(0xFF7B1FA2)
 
 // =================== DATA MODELS ===================
 private enum class Rarity { COMMON, RARE, EPIC, LEGENDARY, MYTHIC }
-private enum class Element { FIRE, EARTH, WATER, ARCANE, THUNDER, ICE }
+private enum class Element { FIRE, EARTH, WATER, ARCANE, THUNDER, ICE, SHADOW, HOLY, NONE }
 
 private data class HeroData(
-    val icon: String, val name: String, val rarity: Rarity,
+    val icon: String, val spriteName: String, val name: String, val rarity: Rarity,
     val element: Element, val level: Int, val maxLevel: Int,
     val hp: Int, val maxHp: Int, val dmg: Int, val maxDmg: Int,
     val xp: Int, val xpMax: Int, val stars: Int
 )
 
 private data class ShopItemData(
-    val icon: String, val name: String, val desc: String,
+    val icon: String, val spriteName: String, val name: String, val desc: String,
     val cost: Int, val statLabel: String, val statValue: String,
     val accent: Color
 )
@@ -197,76 +204,88 @@ fun GameApp() {
 
     val heroes = remember {
         listOf(
-            HeroData("⚔️", "Kingdom Barbarian", Rarity.RARE, Element.EARTH, 2, 10, 250, 250, 65, 65, 60, 80, 2),
-            HeroData("🏹", "Royal Archer", Rarity.RARE, Element.WATER, 2, 10, 120, 120, 55, 55, 60, 80, 2),
-            HeroData("🪨", "Stone Giant", Rarity.EPIC, Element.EARTH, 1, 10, 800, 800, 30, 30, 10, 100, 1),
-            HeroData("🧙", "Arcane Wizard", Rarity.EPIC, Element.ARCANE, 1, 10, 100, 100, 80, 80, 10, 100, 1),
-            HeroData("🐉", "Fire Dragon", Rarity.LEGENDARY, Element.FIRE, 1, 10, 500, 500, 100, 100, 10, 200, 1),
-            HeroData("👺", "Goblin Raider", Rarity.COMMON, Element.EARTH, 1, 10, 150, 150, 40, 40, 10, 60, 1),
-            HeroData("🛡️", "Royal Knight", Rarity.RARE, Element.HOLY, 1, 10, 350, 350, 50, 50, 10, 80, 1),
-            HeroData("✝️", "Holy Healer", Rarity.EPIC, Element.HOLY, 1, 10, 90, 90, 15, 15, 10, 100, 1),
-            HeroData("🗡️", "Shadow Assassin", Rarity.EPIC, Element.SHADOW, 1, 10, 130, 130, 90, 90, 10, 100, 1),
-            HeroData("❄️", "Ice Sorceress", Rarity.EPIC, Element.ICE, 1, 10, 110, 110, 75, 75, 10, 100, 1),
-            HeroData("💀", "Skeleton Warrior", Rarity.COMMON, Element.SHADOW, 1, 10, 180, 180, 35, 35, 10, 60, 1),
-            HeroData("🐂", "Minotaur Berserker", Rarity.LEGENDARY, Element.FIRE, 1, 10, 600, 600, 70, 70, 10, 200, 1),
-            HeroData("🔥", "Phoenix", Rarity.LEGENDARY, Element.FIRE, 1, 10, 300, 300, 85, 85, 10, 200, 1),
-            HeroData("🗿", "Battle Golem", Rarity.LEGENDARY, Element.ARCANE, 1, 10, 900, 900, 45, 45, 10, 200, 1),
-            HeroData("😈", "Demon King", Rarity.MYTHIC, Element.FIRE, 1, 10, 1200, 1200, 120, 120, 10, 200, 1),
+            HeroData("⚔️", "barbarian", "Kingdom Barbarian", Rarity.RARE, Element.EARTH, 2, 10, 250, 250, 65, 65, 60, 80, 2),
+            HeroData("🏹", "archer", "Royal Archer", Rarity.RARE, Element.WATER, 2, 10, 120, 120, 55, 55, 60, 80, 2),
+            HeroData("🪨", "giant", "Stone Giant", Rarity.EPIC, Element.EARTH, 1, 10, 800, 800, 30, 30, 10, 100, 1),
+            HeroData("🧙", "wizard", "Arcane Wizard", Rarity.EPIC, Element.ARCANE, 1, 10, 100, 100, 80, 80, 10, 100, 1),
+            HeroData("🐉", "dragon", "Fire Dragon", Rarity.LEGENDARY, Element.FIRE, 1, 10, 500, 500, 100, 100, 10, 200, 1),
+            HeroData("👺", "goblin", "Goblin Raider", Rarity.COMMON, Element.EARTH, 1, 10, 150, 150, 40, 40, 10, 60, 1),
+            HeroData("🛡️", "knight", "Royal Knight", Rarity.RARE, Element.HOLY, 1, 10, 350, 350, 50, 50, 10, 80, 1),
+            HeroData("✝️", "healer", "Holy Healer", Rarity.EPIC, Element.HOLY, 1, 10, 90, 90, 15, 15, 10, 100, 1),
+            HeroData("🗡️", "assassin", "Shadow Assassin", Rarity.EPIC, Element.SHADOW, 1, 10, 130, 130, 90, 90, 10, 100, 1),
+            HeroData("❄️", "sorceress", "Ice Sorceress", Rarity.EPIC, Element.ICE, 1, 10, 110, 110, 75, 75, 10, 100, 1),
+            HeroData("💀", "skeleton", "Skeleton Warrior", Rarity.COMMON, Element.SHADOW, 1, 10, 180, 180, 35, 35, 10, 60, 1),
+            HeroData("🐂", "minotaur", "Minotaur Berserker", Rarity.LEGENDARY, Element.FIRE, 1, 10, 600, 600, 70, 70, 10, 200, 1),
+            HeroData("🔥", "phoenix", "Phoenix", Rarity.LEGENDARY, Element.FIRE, 1, 10, 300, 300, 85, 85, 10, 200, 1),
+            HeroData("🗿", "golem", "Battle Golem", Rarity.LEGENDARY, Element.ARCANE, 1, 10, 900, 900, 45, 45, 10, 200, 1),
+            HeroData("😈", "demon", "Demon King", Rarity.MYTHIC, Element.FIRE, 1, 10, 1200, 1200, 120, 120, 10, 200, 1),
         )
     }
 
     Box(Modifier.fillMaxSize().background(BgDeep)) {
-        when (screen) {
-            Screen.Home -> HomeScreen(
-                player = player, towerLevel = tower.level, towerHp = tower.health,
-                message = message, messageColor = messageColor, version = version,
-                onBattle = { battleActive = true },
-                onHeroes = { screen = Screen.Heroes },
-                onShop = { screen = Screen.Shop },
-                onClan = { screen = Screen.Clan },
-                onUpgrade = { showUpgrade = true },
-                onPremium = { showPremium = true }
-            )
-            Screen.Heroes -> HeroesScreen(
-                heroes = heroes, player = player,
-                onBack = { screen = Screen.Home },
-                onHeroClick = { showHeroDetail = it }
-            )
-            Screen.Shop -> ShopScreen(
-                player = player, onBack = { screen = Screen.Home },
-                onBuy = { item ->
-                    version++
-                    if (player.resources >= item.cost) {
-                        player.resources -= item.cost
-                        when (item.name) {
-                            "Goblin Raider" -> player.army.add(GoblinWarrior())
-                            "Fire Dragon" -> player.army.add(Dragon())
-                            "Kingdom Barbarian" -> player.army.add(Barbarian())
-                            "Royal Archer" -> player.army.add(Archer())
-                            "Royal Knight" -> player.army.add(Knight())
-                            "Stone Giant" -> player.army.add(StoneGiant())
-                            "Arcane Wizard" -> player.army.add(Wizard())
-                            "Holy Healer" -> player.army.add(Healer())
-                            "Shadow Assassin" -> player.army.add(Assassin())
-                            "Ice Sorceress" -> player.army.add(Sorceress())
-                            "Skeleton Warrior" -> player.army.add(Skeleton())
-                            "Minotaur Berserker" -> player.army.add(Minotaur())
-                            "Phoenix" -> player.army.add(Phoenix())
-                            "Battle Golem" -> player.army.add(Golem())
-                            "Demon King" -> player.army.add(DemonKing())
-                            else -> player.army.add(GoblinWarrior())
+        AnimatedContent(
+            targetState = screen,
+            transitionSpec = {
+                if (targetState is Screen.Home) {
+                    (slideInHorizontally { -it } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
+                } else {
+                    (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it } + fadeOut())
+                }
+            },
+            label = "screen_transition"
+        ) { targetScreen ->
+            when (targetScreen) {
+                Screen.Home -> HomeScreen(
+                    player = player, towerLevel = tower.level, towerHp = tower.health,
+                    message = message, messageColor = messageColor, version = version,
+                    onBattle = { battleActive = true },
+                    onHeroes = { screen = Screen.Heroes },
+                    onShop = { screen = Screen.Shop },
+                    onClan = { screen = Screen.Clan },
+                    onUpgrade = { showUpgrade = true },
+                    onPremium = { showPremium = true }
+                )
+                Screen.Heroes -> HeroesScreen(
+                    heroes = heroes, player = player,
+                    onBack = { screen = Screen.Home },
+                    onHeroClick = { showHeroDetail = it }
+                )
+                Screen.Shop -> ShopScreen(
+                    player = player, onBack = { screen = Screen.Home },
+                    onBuy = { item ->
+                        version++
+                        if (player.resources >= item.cost) {
+                            player.resources -= item.cost
+                            when (item.name) {
+                                "Goblin Raider" -> player.army.add(GoblinWarrior())
+                                "Fire Dragon" -> player.army.add(Dragon())
+                                "Kingdom Barbarian" -> player.army.add(Barbarian())
+                                "Royal Archer" -> player.army.add(Archer())
+                                "Royal Knight" -> player.army.add(Knight())
+                                "Stone Giant" -> player.army.add(StoneGiant())
+                                "Arcane Wizard" -> player.army.add(Wizard())
+                                "Holy Healer" -> player.army.add(Healer())
+                                "Shadow Assassin" -> player.army.add(Assassin())
+                                "Ice Sorceress" -> player.army.add(Sorceress())
+                                "Skeleton Warrior" -> player.army.add(Skeleton())
+                                "Minotaur Berserker" -> player.army.add(Minotaur())
+                                "Phoenix" -> player.army.add(Phoenix())
+                                "Battle Golem" -> player.army.add(Golem())
+                                "Demon King" -> player.army.add(DemonKing())
+                                else -> player.army.add(GoblinWarrior())
+                            }
+                            message = "Recruited ${item.name}!"; messageColor = Emerald
+                        } else {
+                            message = "Not enough gold!"; messageColor = Ruby
                         }
-                        message = "Recruited ${item.name}!"; messageColor = Emerald
-                    } else {
-                        message = "Not enough gold!"; messageColor = Ruby
-                    }
-                },
-                onPremium = { showPremium = true }
-            )
-            Screen.Clan -> ClanScreen(
-                guild = guild, guildGate = guildGate, player = player,
-                onBack = { screen = Screen.Home }
-            )
+                    },
+                    onPremium = { showPremium = true }
+                )
+                Screen.Clan -> ClanScreen(
+                    guild = guild, guildGate = guildGate, player = player,
+                    onBack = { screen = Screen.Home }
+                )
+            }
         }
 
         if (battleActive) {
@@ -370,140 +389,164 @@ private fun HomeScreen(
 // =================== ISOMETRIC VILLAGE ===================
 @Composable
 private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
+    val infinite = rememberInfiniteTransition()
+    val animTime by infinite.animateFloat(0f, 100f, infiniteRepeatable(tween(60000, easing = LinearEasing)))
+
     Canvas(Modifier.fillMaxSize().background(BgDeep)) {
-        val w = size.width
-        val h = size.height
-        val tileW = 80f
-        val tileH = 40f
-        val centerX = w * 0.5f
-        val centerY = h * 0.45f
+        val w = size.width; val h = size.height
+        val tileW = 80f; val tileH = 40f
+        val centerX = w * 0.5f; val centerY = h * 0.45f
 
-        // Sky gradient
-        drawRect(
-            Brush.verticalGradient(listOf(Color(0xFF0A0A1A), Color(0xFF151530), Color(0xFF1A1A2E))),
-            size = Size(w, h)
-        )
+        // Sky with depth gradient
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF06091A), Color(0xFF0D1229), Color(0xFF141B3D), Color(0xFF1A1A2E))), size = Size(w, h))
 
-        // Stars
-        repeat(20) { i ->
-            val sx = w * (0.05f + 0.9f * (i * 7 % 20) / 20f)
-            val sy = h * (0.03f + 0.15f * (i * 3 % 5))
-            drawCircle(Color.White.copy(alpha = 0.3f + 0.2f * (i % 3)), radius = 1.5f, center = Offset(sx, sy))
+        // Parallax mountains (far layer)
+        val mtnFar = Path().apply {
+            moveTo(0f, h * 0.65f); lineTo(w * 0.1f, h * 0.35f); lineTo(w * 0.25f, h * 0.42f)
+            lineTo(w * 0.4f, h * 0.3f); lineTo(w * 0.55f, h * 0.38f); lineTo(w * 0.7f, h * 0.32f)
+            lineTo(w * 0.85f, h * 0.4f); lineTo(w, h * 0.36f); lineTo(w, h * 0.65f); close()
+        }
+        drawPath(mtnFar, Color(0xFF0F1525))
+
+        // Parallax mountains (near layer)
+        val mtnNear = Path().apply {
+            moveTo(0f, h * 0.65f); lineTo(w * 0.05f, h * 0.48f); lineTo(w * 0.18f, h * 0.52f)
+            lineTo(w * 0.3f, h * 0.44f); lineTo(w * 0.45f, h * 0.5f); lineTo(w * 0.6f, h * 0.46f)
+            lineTo(w * 0.75f, h * 0.52f); lineTo(w * 0.9f, h * 0.47f); lineTo(w, h * 0.51f); lineTo(w, h * 0.65f); close()
+        }
+        drawPath(mtnNear, Color(0xFF141E35))
+
+        // Stars with twinkle
+        repeat(35) { i ->
+            val sx = w * ((i * 29 % 100) / 100f)
+            val sy = h * (0.02f + 0.25f * (i * 11 % 8) / 7f)
+            val twinkle = 0.2f + 0.4f * sin(animTime * 0.8f + i * 1.3f).toFloat()
+            drawCircle(Color.White.copy(alpha = twinkle), radius = 1f + (i % 3) * 0.6f, center = Offset(sx, sy))
         }
 
-        // Ground plane (isometric)
-        val groundColor = Color(0xFF1B5E20)
-        val groundLight = Color(0xFF2E7D32)
-        val rows = 6
-        val cols = 8
+        // Floating clouds (parallax)
+        repeat(4) { i ->
+            val cx = ((animTime * (6f + i * 3f) + i * 300f) % (w + 300f)) - 150f
+            val cy = h * (0.08f + i * 0.06f)
+            val cSize = 100f + i * 30f
+            drawOval(Color(0xFF1E2650).copy(alpha = 0.08f + i * 0.02f), topLeft = Offset(cx, cy), size = Size(cSize, cSize * 0.35f))
+            drawOval(Color(0xFF1A2040).copy(alpha = 0.06f + i * 0.01f), topLeft = Offset(cx + cSize * 0.2f, cy - cSize * 0.08f), size = Size(cSize * 0.6f, cSize * 0.25f))
+        }
 
+        // Ground plane (isometric) with depth shading
+        val rows = 6; val cols = 8
         for (row in 0 until rows) {
             for (col in 0 until cols) {
                 val isoX = centerX + (col - cols / 2f) * tileW * 0.5f + (row - rows / 2f) * tileW * 0.5f
                 val isoY = centerY + (col - cols / 2f) * tileH * 0.5f - (row - rows / 2f) * tileH * 0.5f + 60f
-
                 if (isoX > -tileW && isoX < w + tileW && isoY > 0 && isoY < h) {
                     val tile = Path().apply {
-                        moveTo(isoX, isoY - tileH / 2)
-                        lineTo(isoX + tileW / 2, isoY)
-                        lineTo(isoX, isoY + tileH / 2)
-                        lineTo(isoX - tileW / 2, isoY)
-                        close()
+                        moveTo(isoX, isoY - tileH / 2); lineTo(isoX + tileW / 2, isoY)
+                        lineTo(isoX, isoY + tileH / 2); lineTo(isoX - tileW / 2, isoY); close()
                     }
-                    val tileColor = if ((row + col) % 2 == 0) groundColor else groundLight
+                    val depthFactor = (row.toFloat() / rows).coerceIn(0f, 1f)
+                    val tileColor = lerp(Color(0xFF2E7D32), Color(0xFF1B5E20), depthFactor)
                     drawPath(tile, tileColor)
                     drawPath(tile, Color(0xFF1B5E20).copy(alpha = 0.3f), style = Stroke(1f))
                 }
             }
         }
 
-        // Buildings
-        drawIsometricBuilding(centerX - 120f, centerY + 30f, 50f, 70f, Color(0xFF795548), Color(0xFF5D4037), "🏠")
-        drawIsometricBuilding(centerX + 80f, centerY + 10f, 40f, 55f, Color(0xFFFF8F00), Color(0xFFEF6C00), "⛏️")
-        drawIsometricBuilding(centerX - 20f, centerY - 30f, 60f, 90f, Color(0xFF1565C0), Color(0xFF0D47A1), "🏰")
-        drawIsometricBuilding(centerX + 140f, centerY + 50f, 35f, 50f, Color(0xFF388E3C), Color(0xFF2E7D32), "🌾")
-        drawIsometricBuilding(centerX - 180f, centerY + 60f, 45f, 60f, Color(0xFF616161), Color(0xFF424242), "🛡️")
+        // Buildings with 3D depth + animated effects
+        drawVillageBuilding(centerX - 120f, centerY + 30f, 50f, 70f, Color(0xFF795548), Color(0xFF5D4037), "🏠", animTime)
+        drawVillageBuilding(centerX + 80f, centerY + 10f, 40f, 55f, Color(0xFFFF8F00), Color(0xFFEF6C00), "⛏", animTime)
+        drawVillageBuilding(centerX - 20f, centerY - 30f, 60f, 90f, Color(0xFF1565C0), Color(0xFF0D47A1), "🏰", animTime)
+        drawVillageBuilding(centerX + 140f, centerY + 50f, 35f, 50f, Color(0xFF388E3C), Color(0xFF2E7D32), "🌾", animTime)
+        drawVillageBuilding(centerX - 180f, centerY + 60f, 45f, 60f, Color(0xFF616161), Color(0xFF424242), "🛡", animTime)
 
-        // Trees
-        drawTree(centerX - 250f, centerY + 40f)
-        drawTree(centerX + 220f, centerY + 70f)
-        drawTree(centerX - 60f, centerY + 80f)
+        // Trees with depth shading
+        drawVillageTree(centerX - 250f, centerY + 40f, animTime)
+        drawVillageTree(centerX + 220f, centerY + 70f, animTime)
+        drawVillageTree(centerX - 60f, centerY + 80f, animTime)
 
-        // River
+        // River with animated shimmer
         val riverPath = Path().apply {
             moveTo(0f, centerY + 100f)
             cubicTo(w * 0.25f, centerY + 80f, w * 0.5f, centerY + 120f, w * 0.75f, centerY + 90f)
             cubicTo(w * 0.85f, centerY + 80f, w * 0.95f, centerY + 100f, w, centerY + 95f)
         }
-        drawPath(riverPath, Color(0xFF0288D1).copy(alpha = 0.5f), style = Stroke(12f, cap = StrokeCap.Round))
-        drawPath(riverPath, Color(0xFF4FC3F7).copy(alpha = 0.3f), style = Stroke(6f, cap = StrokeCap.Round))
+        drawPath(riverPath, Color(0xFF01579B).copy(alpha = 0.6f), style = Stroke(14f, cap = StrokeCap.Round))
+        drawPath(riverPath, Color(0xFF0288D1).copy(alpha = 0.4f), style = Stroke(10f, cap = StrokeCap.Round))
+        drawPath(riverPath, Color(0xFF4FC3F7).copy(alpha = 0.2f + 0.1f * sin(animTime * 2f).toFloat()), style = Stroke(6f, cap = StrokeCap.Round))
+
+        // Water shimmer particles
+        repeat(8) { i ->
+            val shimmerX = (w * (i * 0.12f) + sin(animTime * 1.5f + i * 2f) * 20f)
+            val shimmerY = centerY + 95f + cos(animTime * 1.2f + i) * 5f
+            drawCircle(Color(0xFF81D4FA).copy(alpha = 0.15f + 0.1f * sin(animTime * 3f + i).toFloat()), radius = 2f, center = Offset(shimmerX, shimmerY))
+        }
+
+        // Fireflies
+        repeat(6) { i ->
+            val fx = centerX + sin(animTime * 0.5f + i * 1.7f) * 200f
+            val fy = centerY + cos(animTime * 0.7f + i * 2.1f) * 60f + 20f
+            val fAlpha = 0.2f + 0.3f * sin(animTime * 3f + i * 1.5f).toFloat()
+            drawCircle(Color(0xFFFFEB3B).copy(alpha = fAlpha * 0.3f), radius = 8f, center = Offset(fx, fy))
+            drawCircle(Color(0xFFFFEB3B).copy(alpha = fAlpha), radius = 2.5f, center = Offset(fx, fy))
+        }
+
+        // Smoke from HQ chimney
+        repeat(5) { i ->
+            val smokeY = centerY - 100f - i * 12f - sin(animTime * 0.5f) * 5f
+            val smokeX = centerX - 20f + sin(animTime * 0.3f + i * 0.8f) * (4f + i * 2f)
+            val smokeAlpha = (0.15f - i * 0.025f).coerceAtLeast(0f)
+            val smokeR = 4f + i * 3f
+            drawCircle(Color(0xFF78909C).copy(alpha = smokeAlpha), radius = smokeR, center = Offset(smokeX, smokeY))
+        }
 
         // Upgrade arrow on main tower
         val arrowCX = centerX - 20f
         val arrowCY = centerY - 80f - arrowOffset
-        drawCircle(Emerald.copy(alpha = 0.6f), radius = 14f, center = Offset(arrowCX, arrowCY))
-        val arrowPath = Path().apply {
-            moveTo(arrowCX, arrowCY - 8f)
-            lineTo(arrowCX + 6f, arrowCY)
-            lineTo(arrowCX - 6f, arrowCY)
-            close()
-        }
+        drawCircle(Emerald.copy(alpha = 0.4f), radius = 18f, center = Offset(arrowCX, arrowCY))
+        drawCircle(Emerald.copy(alpha = 0.6f), radius = 12f, center = Offset(arrowCX, arrowCY))
+        val arrowPath = Path().apply { moveTo(arrowCX, arrowCY - 8f); lineTo(arrowCX + 6f, arrowCY); lineTo(arrowCX - 6f, arrowCY); close() }
         drawPath(arrowPath, EmeraldLight)
 
-        // Build radius circle
-        drawCircle(
-            RoyalBlue.copy(alpha = 0.1f),
-            radius = 160f,
-            center = Offset(centerX - 20f, centerY),
-            style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f)))
-        )
+        // Build radius circle with animated dash
+        drawCircle(RoyalBlue.copy(alpha = 0.1f), radius = 160f, center = Offset(centerX - 20f, centerY), style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), animTime * 20f)))
     }
 }
 
-private fun DrawScope.drawIsometricBuilding(cx: Float, cy: Float, bw: Float, bh: Float, color: Color, darkColor: Color, icon: String) {
-    // Shadow
-    drawOval(Color(0x44000000), topLeft = Offset(cx - bw, cy + bh * 0.1f), size = Size(bw * 2, bh * 0.2f))
+private fun DrawScope.drawVillageBuilding(cx: Float, cy: Float, bw: Float, bh: Float, color: Color, darkColor: Color, icon: String, animTime: Float) {
+    // Shadow with depth
+    drawOval(Color(0x55000000), topLeft = Offset(cx - bw * 1.1f, cy + bh * 0.15f), size = Size(bw * 2.2f, bh * 0.18f))
 
     // Body (isometric box)
-    val body = Path().apply {
-        moveTo(cx - bw / 2, cy)
-        lineTo(cx, cy - bh * 0.4f)
-        lineTo(cx + bw / 2, cy)
-        lineTo(cx, cy + bh * 0.4f)
-        close()
-    }
+    val body = Path().apply { moveTo(cx - bw / 2, cy); lineTo(cx, cy - bh * 0.4f); lineTo(cx + bw / 2, cy); lineTo(cx, cy + bh * 0.4f); close() }
     drawPath(body, color)
-
-    // Top face
-    val top = Path().apply {
-        moveTo(cx, cy - bh * 0.4f)
-        lineTo(cx + bw / 2, cy - bh * 0.4f + bh * 0.2f)
-        lineTo(cx, cy - bh * 0.4f + bh * 0.4f)
-        lineTo(cx - bw / 2, cy - bh * 0.4f + bh * 0.2f)
-        close()
-    }
-    drawPath(top, lerp(color, Color.White, 0.2f))
-
+    // Left face (darker)
+    val leftFace = Path().apply { moveTo(cx - bw / 2, cy); lineTo(cx, cy + bh * 0.4f); lineTo(cx, cy - bh * 0.4f + bh * 0.4f); lineTo(cx - bw / 2, cy - bh * 0.4f + bh * 0.2f); close() }
+    drawPath(leftFace, darkColor)
+    // Top face (lighter)
+    val top = Path().apply { moveTo(cx, cy - bh * 0.4f); lineTo(cx + bw / 2, cy - bh * 0.4f + bh * 0.2f); lineTo(cx, cy - bh * 0.4f + bh * 0.4f); lineTo(cx - bw / 2, cy - bh * 0.4f + bh * 0.2f); close() }
+    drawPath(top, lerp(color, Color.White, 0.25f))
     // Roof
     drawRect(darkColor, topLeft = Offset(cx - bw * 0.3f, cy - bh * 0.7f), size = Size(bw * 0.6f, bh * 0.35f))
 
+    // Window glow
+    val glowPulse = 0.4f + 0.2f * sin(animTime * 2f + cx * 0.01f).toFloat()
+    drawCircle(Color(0xFFFFF176).copy(alpha = glowPulse), radius = 4f, center = Offset(cx - 8f, cy - bh * 0.15f))
+    drawCircle(Color(0xFFFFF176).copy(alpha = glowPulse), radius = 4f, center = Offset(cx + 8f, cy - bh * 0.15f))
+
     // Icon text
-    android.graphics.Paint().apply {
-        textAlign = android.graphics.Paint.Align.CENTER
-        textSize = 24f
-        isAntiAlias = true
-    }.let { paint ->
+    android.graphics.Paint().apply { textAlign = android.graphics.Paint.Align.CENTER; textSize = 24f; isAntiAlias = true }.let { paint ->
         drawContext.canvas.nativeCanvas.drawText(icon, cx, cy + bh * 0.1f, paint)
     }
 }
 
-private fun DrawScope.drawTree(x: Float, y: Float) {
-    // Trunk
+private fun DrawScope.drawVillageTree(x: Float, y: Float, animTime: Float) {
+    val sway = sin(animTime * 0.8f + x * 0.01f) * 2f
     drawRect(Color(0xFF5D4037), topLeft = Offset(x - 3f, y), size = Size(6f, 20f))
-    // Foliage
-    drawCircle(Color(0xFF2E7D32), radius = 14f, center = Offset(x, y - 8f))
-    drawCircle(Color(0xFF43A047), radius = 10f, center = Offset(x - 4f, y - 12f))
-    drawCircle(Color(0xFF388E3C), radius = 8f, center = Offset(x + 5f, y - 10f))
+    drawCircle(Color(0xFF1B5E20), radius = 14f, center = Offset(x + sway, y - 8f))
+    drawCircle(Color(0xFF2E7D32), radius = 10f, center = Offset(x - 4f + sway, y - 12f))
+    drawCircle(Color(0xFF388E3C), radius = 8f, center = Offset(x + 5f + sway, y - 10f))
+    // Highlight
+    drawCircle(Color(0xFF4CAF50).copy(alpha = 0.3f), radius = 5f, center = Offset(x - 2f + sway, y - 14f))
 }
 
 // =================== RESOURCE BAR ===================
@@ -605,6 +648,7 @@ private fun HeroesScreen(
 
 @Composable
 private fun HeroCard(hero: HeroData, onClick: () -> Unit) {
+    val context = LocalContext.current
     val rarityColor = when (hero.rarity) {
         Rarity.COMMON -> RarityCommon
         Rarity.RARE -> RarityRare
@@ -624,21 +668,34 @@ private fun HeroCard(hero: HeroData, onClick: () -> Unit) {
         Element.NONE -> TextGray
     }
 
+    val spriteResId = context.resources.getIdentifier(hero.spriteName, "drawable", context.packageName)
+
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.5f, stiffness = 300f))
 
     Column(
         Modifier.fillMaxWidth().scale(scale)
-            .shadow(6.dp, RoundedCornerShape(12.dp))
-            .background(Brush.verticalGradient(listOf(BgCard, BgPanel)), RoundedCornerShape(12.dp))
-            .border(2.dp, rarityColor.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+            .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = rarityColor.copy(alpha = 0.3f))
+            .shadow(3.dp, RoundedCornerShape(12.dp), ambientColor = rarityColor.copy(alpha = 0.15f))
+            .background(Brush.verticalGradient(listOf(BgCard.copy(alpha = 0.95f), BgPanel.copy(alpha = 0.9f))), RoundedCornerShape(12.dp))
+            .border(1.5.dp, rarityColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
             .clickable(interactionSource = interaction, indication = null) { onClick() }
             .padding(8.dp)
     ) {
-        // Icon + Rarity badge
-        Box(Modifier.fillMaxWidth().height(80.dp).background(rarityColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-            Text(hero.icon, fontSize = 40.sp)
+        // Icon + Rarity badge with glass overlay
+        Box(Modifier.fillMaxWidth().height(80.dp).background(Brush.verticalGradient(listOf(rarityColor.copy(alpha = 0.12f), rarityColor.copy(alpha = 0.04f))), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+            if (spriteResId != 0) {
+                Image(
+                    painter = painterResource(id = spriteResId),
+                    contentDescription = hero.name,
+                    modifier = Modifier.size(64.dp),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Text(hero.icon, fontSize = 40.sp)
+            }
             // Level badge
             Box(Modifier.align(Alignment.TopStart).background(rarityColor, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
                 Text("Lv${hero.level}", color = TextWhite, fontSize = 8.sp, fontWeight = FontWeight.Bold)
@@ -699,6 +756,7 @@ private fun HeroCard(hero: HeroData, onClick: () -> Unit) {
 // =================== HERO DETAIL DIALOG ===================
 @Composable
 private fun HeroDetailDialog(hero: HeroData, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     val rarityColor = when (hero.rarity) {
         Rarity.COMMON -> RarityCommon; Rarity.RARE -> RarityRare
         Rarity.EPIC -> RarityEpic; Rarity.LEGENDARY -> RarityLegendary; Rarity.MYTHIC -> RarityMythic
@@ -717,7 +775,17 @@ private fun HeroDetailDialog(hero: HeroData, onDismiss: () -> Unit) {
         ) {
             // Hero icon
             Box(Modifier.size(100.dp).background(rarityColor.copy(alpha = 0.15f), RoundedCornerShape(12.dp)).border(2.dp, rarityColor, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                Text(hero.icon, fontSize = 50.sp)
+                val spriteResId = context.resources.getIdentifier(hero.spriteName, "drawable", context.packageName)
+                if (spriteResId != 0) {
+                    Image(
+                        painter = painterResource(id = spriteResId),
+                        contentDescription = hero.name,
+                        modifier = Modifier.size(80.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Text(hero.icon, fontSize = 50.sp)
+                }
             }
             Spacer(Modifier.height(8.dp))
             Text(hero.name, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -784,31 +852,31 @@ private fun ShopScreen(
     val tabs = listOf("TROOPS", "SPELLS", "RESOURCES", "PREMIUM")
 
     val troopItems = listOf(
-        ShopItemData("⚔️", "Kingdom Barbarian", "Fast melee attacker", 100, "DMG", "65", GoldBright),
-        ShopItemData("🏹", "Royal Archer", "Long-range precision", 80, "DMG", "55", ElementEarth),
-        ShopItemData("🪨", "Stone Giant", "Massive tank", 200, "HP", "800", ElementEarth),
-        ShopItemData("🧙", "Arcane Wizard", "Area magic attacks", 180, "DMG", "80", ElementArcane),
-        ShopItemData("🐉", "Fire Dragon", "Flying fire terror", 250, "DMG", "100", ElementFire),
-        ShopItemData("👺", "Goblin Raider", "Steals resources", 50, "DMG", "40", Emerald),
-        ShopItemData("🛡️", "Royal Knight", "Balanced fighter", 120, "DMG", "50", RoyalBlue),
-        ShopItemData("✝️", "Holy Healer", "Restores allies", 150, "HEAL", "15", GoldBright),
-        ShopItemData("🗡️", "Shadow Assassin", "Stealth killer", 200, "DMG", "90", MysticPurple),
-        ShopItemData("❄️", "Ice Sorceress", "Freezes enemies", 170, "DMG", "75", ElementIce),
-        ShopItemData("💀", "Skeleton Warrior", "Undead fighter", 60, "DMG", "35", ElementShadow),
-        ShopItemData("🐂", "Minotaur Berserker", "Heavy melee beast", 280, "DMG", "70", ElementFire),
-        ShopItemData("🔥", "Phoenix", "Revives after defeat", 300, "DMG", "85", ElementFire),
-        ShopItemData("🗿", "Battle Golem", "Siege tank", 350, "HP", "900", ElementArcane),
-        ShopItemData("😈", "Demon King", "Legendary boss", 500, "DMG", "120", ElementFire),
+        ShopItemData("⚔️", "barbarian", "Kingdom Barbarian", "Fast melee attacker", 100, "DMG", "65", GoldBright),
+        ShopItemData("🏹", "archer", "Royal Archer", "Long-range precision", 80, "DMG", "55", ElementEarth),
+        ShopItemData("🪨", "giant", "Stone Giant", "Massive tank", 200, "HP", "800", ElementEarth),
+        ShopItemData("🧙", "wizard", "Arcane Wizard", "Area magic attacks", 180, "DMG", "80", ElementArcane),
+        ShopItemData("🐉", "dragon", "Fire Dragon", "Flying fire terror", 250, "DMG", "100", ElementFire),
+        ShopItemData("👺", "goblin", "Goblin Raider", "Steals resources", 50, "DMG", "40", Emerald),
+        ShopItemData("🛡️", "knight", "Royal Knight", "Balanced fighter", 120, "DMG", "50", RoyalBlue),
+        ShopItemData("✝️", "healer", "Holy Healer", "Restores allies", 150, "HEAL", "15", GoldBright),
+        ShopItemData("🗡️", "assassin", "Shadow Assassin", "Stealth killer", 200, "DMG", "90", MysticPurple),
+        ShopItemData("❄️", "sorceress", "Ice Sorceress", "Freezes enemies", 170, "DMG", "75", ElementIce),
+        ShopItemData("💀", "skeleton", "Skeleton Warrior", "Undead fighter", 60, "DMG", "35", ElementShadow),
+        ShopItemData("🐂", "minotaur", "Minotaur Berserker", "Heavy melee beast", 280, "DMG", "70", ElementFire),
+        ShopItemData("🔥", "phoenix", "Phoenix", "Revives after defeat", 300, "DMG", "85", ElementFire),
+        ShopItemData("🗿", "golem", "Battle Golem", "Siege tank", 350, "HP", "900", ElementArcane),
+        ShopItemData("😈", "demon", "Demon King", "Legendary boss", 500, "DMG", "120", ElementFire),
     )
     val spellItems = listOf(
-        ShopItemData("🛡️", "Shield Spell", "+30 DEF for 10s", 80, "DEF", "+30", RoyalBlue),
-        ShopItemData("🔮", "Heal Spell", "Restores 50% HP", 100, "HEAL", "50%", Emerald),
-        ShopItemData("⚡", "Lightning", "Chain damage", 120, "DMG", "80", ElementThunder),
+        ShopItemData("🛡️", "", "Shield Spell", "+30 DEF for 10s", 80, "DEF", "+30", RoyalBlue),
+        ShopItemData("🔮", "", "Heal Spell", "Restores 50% HP", 100, "HEAL", "50%", Emerald),
+        ShopItemData("⚡", "", "Lightning", "Chain damage", 120, "DMG", "80", ElementThunder),
     )
     val resourceItems = listOf(
-        ShopItemData("💰", "Gold Mine", "Produces gold", 200, "Rate", "50/h", GoldBright),
-        ShopItemData("🧪", "Elixir Collector", "Produces elixir", 250, "Rate", "40/h", MysticPurple),
-        ShopItemData("💎", "Gem Mine", "Produces gems", 500, "Rate", "10/h", RoyalBlue),
+        ShopItemData("💰", "", "Gold Mine", "Produces gold", 200, "Rate", "50/h", GoldBright),
+        ShopItemData("🧪", "", "Elixir Collector", "Produces elixir", 250, "Rate", "40/h", MysticPurple),
+        ShopItemData("💎", "", "Gem Mine", "Produces gems", 500, "Rate", "10/h", RoyalBlue),
     )
 
     Column(Modifier.fillMaxSize().background(BgDeep).padding(12.dp)) {
@@ -852,14 +920,28 @@ private fun ShopScreen(
 
 @Composable
 private fun ShopItemCard(item: ShopItemData, onBuy: () -> Unit) {
+    val context = LocalContext.current
+    val spriteResId = if (item.spriteName.isNotEmpty()) context.resources.getIdentifier(item.spriteName, "drawable", context.packageName) else 0
     Row(
-        Modifier.fillMaxWidth().background(BgCard, RoundedCornerShape(10.dp))
-            .border(1.dp, item.accent.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+        Modifier.fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(10.dp), ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = item.accent.copy(alpha = 0.15f))
+            .background(Brush.verticalGradient(listOf(BgCard.copy(alpha = 0.95f), BgPanel.copy(alpha = 0.9f))), RoundedCornerShape(10.dp))
+            .border(1.dp, item.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(48.dp).background(item.accent.copy(alpha = 0.15f), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-            Text(item.icon, fontSize = 26.sp)
+            if (spriteResId != 0) {
+                Image(
+                    painter = painterResource(id = spriteResId),
+                    contentDescription = item.name,
+                    modifier = Modifier.size(40.dp),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Text(item.icon, fontSize = 26.sp)
+            }
         }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
@@ -1150,7 +1232,7 @@ private fun NavItem(iconRes: Int, label: String, selected: Boolean, onClick: () 
     }
 }
 
-// =================== GLOSSY BUTTON ===================
+// =================== GLOSSY BUTTON (3D) ===================
 @Composable
 private fun GlossyButton(
     text: String, width: Dp, height: Dp,
@@ -1164,25 +1246,27 @@ private fun GlossyButton(
 
     Box(
         Modifier.width(width).height(height).scale(scale)
-            .shadow(4.dp, RoundedCornerShape(10.dp))
-            .background(Brush.verticalGradient(gradient), RoundedCornerShape(10.dp))
-            .border(1.5.dp, GoldBright.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+            .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Color.Black.copy(alpha = 0.4f), spotColor = Color.Black.copy(alpha = 0.3f))
+            .shadow(3.dp, RoundedCornerShape(12.dp), ambientColor = gradient.first().copy(alpha = 0.2f))
+            .background(Brush.verticalGradient(listOf(gradient.first(), gradient.last())), RoundedCornerShape(12.dp))
+            .border(1.5.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
             .clickable(interactionSource = interaction, indication = null) { onClick() },
         contentAlignment = Alignment.Center
     ) {
+        // Glass highlight on top
+        Box(Modifier.fillMaxWidth().height(height * 0.45f).background(
+            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.18f), Color.Transparent)),
+            RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+        ))
         if (glowAlpha > 0f) {
             Canvas(Modifier.fillMaxSize()) {
-                drawCircle(GoldGlow.copy(alpha = glowAlpha * 0.3f), radius = size.width * 0.4f)
+                drawCircle(gradient.first().copy(alpha = glowAlpha * 0.25f), radius = size.width * 0.45f)
+                drawCircle(gradient.first().copy(alpha = glowAlpha * 0.1f), radius = size.width * 0.6f)
             }
         }
         if (iconRes != 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    contentScale = ContentScale.Fit
-                )
+                Image(painter = painterResource(id = iconRes), contentDescription = null, modifier = Modifier.size(20.dp), contentScale = ContentScale.Fit)
                 Spacer(Modifier.width(6.dp))
                 Text(text, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }

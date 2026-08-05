@@ -1,19 +1,41 @@
-package com.clashgame.strategy
+﻿package com.clashgame.strategy
 
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -27,688 +49,426 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Text
 import com.clashgame.strategy.model.GameCharacter
 import kotlin.math.PI
 import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.math.sqrt
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
-private class BattleUnit(
-    val type: String,
-    val spriteName: String,
-    val maxHp: Float,
-    var hp: Float,
-    val damage: Int,
-    val speed: Float,
-    val fly: Boolean,
-    var x: Float,
-    var attackAnim: Float = 0f,
-    var hitFlash: Float = 0f,
-    var dead: Boolean = false,
-    var deathAnim: Float = 0f
+private val BgCard = Color(0xFF1E1E30)
+private val BgPanel = Color(0xFF141428)
+private val TextWhite = Color(0xFFE0E0E0)
+private val TextGray = Color(0xFF9E9E9E)
+
+// =================== CARD DATA ===================
+private enum class AbilityType { NONE, FAST, RANGED, HEALER, SPLASH, STEALTH, CHARGE, REVIVE, FREEZE, RAGE, SIEGE, SUMMON }
+
+private data class CardDef(
+    val name: String, val spriteName: String, val cost: Int,
+    val hp: Int, val damage: Int, val speed: Float,
+    val isRanged: Boolean, val ability: AbilityType, val color: Color
 )
 
-private class Arrow(
-    val target: BattleUnit,
-    val fromX: Float,
-    val fromY: Float,
-    var progress: Float = 0f
+private val ALL_CARDS = listOf(
+    CardDef("Goblin","goblin",2,80,20,2.2f,false,AbilityType.FAST,Color(0xFF66BB6A)),
+    CardDef("Skeleton","skeleton",1,50,12,1.8f,false,AbilityType.SUMMON,Color(0xFFBDBDBD)),
+    CardDef("Archer","archer",3,100,35,1.3f,true,AbilityType.RANGED,Color(0xFF2E7D32)),
+    CardDef("Barbarian","barbarian",4,220,45,1.0f,false,AbilityType.RAGE,Color(0xFFD4A017)),
+    CardDef("Knight","knight",5,300,40,0.9f,false,AbilityType.NONE,Color(0xFF90CAF9)),
+    CardDef("Healer","healer",4,80,0,1.1f,false,AbilityType.HEALER,Color(0xFFFFF9C4)),
+    CardDef("Wizard","wizard",5,90,55,1.0f,true,AbilityType.SPLASH,Color(0xFF1565C0)),
+    CardDef("Giant","giant",7,600,20,0.5f,false,AbilityType.SIEGE,Color(0xFF78909C)),
+    CardDef("Assassin","assassin",4,90,75,2.0f,false,AbilityType.STEALTH,Color(0xFF4A148C)),
+    CardDef("Sorceress","sorceress",5,85,45,1.0f,true,AbilityType.FREEZE,Color(0xFF03A9F4)),
+    CardDef("Dragon","dragon",7,250,65,1.4f,true,AbilityType.SPLASH,Color(0xFFEF5350)),
+    CardDef("Minotaur","minotaur",6,400,55,0.8f,false,AbilityType.CHARGE,Color(0xFF8D6E63)),
+    CardDef("Phoenix","phoenix",6,150,50,1.3f,true,AbilityType.REVIVE,Color(0xFFFF8F00)),
+    CardDef("Golem","golem",8,800,25,0.3f,false,AbilityType.SIEGE,Color(0xFF546E7A)),
+    CardDef("Demon","demon",10,1000,90,0.7f,false,AbilityType.SPLASH,Color(0xFFC62828))
 )
 
-private class DamageNumber(val text: String, val unit: BattleUnit?) {
-    var life = 1f
-}
+private class DeployedUnit(
+    val card: CardDef, var x: Float, var y: Float,
+    var hp: Float, val maxHp: Float, val damage: Int, val speed: Float,
+    var attackCooldown: Float = 0f, var targetBuilding: Int = -1,
+    var abilityTimer: Float = 0f, var stealthed: Boolean = false, var stealthTimer: Float = 2.5f,
+    var charged: Boolean = false, var chargeTimer: Float = 1.5f,
+    var revived: Boolean = false, var dead: Boolean = false, var deathAnim: Float = 0f,
+    var spawnAnim: Float = 1f, var attackAnim: Float = 0f, var hitFlash: Float = 0f,
+    var healCooldown: Float = 0f, var frozen: Float = 0f, var rageActive: Boolean = false
+)
 
-private class Particle(var x: Float, var y: Float, val vx: Float, val vy: Float) {
-    var life = 1f
-}
+private class EnemyBuilding(
+    val x: Float, val y: Float, val w: Float, val h: Float, val name: String,
+    var hp: Float, val maxHp: Float, val color: Color, val roofColor: Color,
+    val attackDamage: Int = 15, var attackCooldown: Float = 0f, var hitFlash: Float = 0f,
+    var destroyed: Boolean = false, var deathAnim: Float = 0f, val isResource: Boolean = false
+)
 
-private class Confetti(
-    var x: Float,
-    var y: Float,
-    val vx: Float,
-    var vy: Float,
-    val color: Color,
-    val size: Float,
-    val spin: Float
-) {
-    var rot = Random.nextFloat() * 6.28f
-    var life = 1f
-}
-
+private class Projectile(var x: Float, var y: Float, val tx: Float, val ty: Float, var progress: Float = 0f, val damage: Int, val fromEnemy: Boolean, val color: Color = Color(0xFFFFAB40), val trail: MutableList<Offset> = mutableListOf())
+private class SpawnEffect(var x: Float, var y: Float, var life: Float = 1f)
+private class HitParticle(var x: Float, var y: Float, var vx: Float, var vy: Float, var life: Float, val color: Color, val size: Float)
+private class FloatingText(var text: String, var x: Float, var y: Float, var life: Float, val color: Int)
 @Composable
-fun BattleScreen(
-    army: List<GameCharacter>,
-    towerName: String,
-    towerHp: Float,
-    onFinish: (Boolean) -> Unit
-) {
-    val units = remember(army) {
-        army.mapIndexed { i, ch ->
-            BattleUnit(
-                type = ch.type,
-                spriteName = ch.spriteName,
-                maxHp = ch.health.toFloat(),
-                hp = ch.health.toFloat(),
-                damage = ch.damage,
-                speed = ch.speed * 150f,
-                fly = ch.isFlying,
-                x = -80f - i * 70f
-            )
-        }
-    }
-
-    var towerCurrentHp by remember { mutableStateOf(towerHp) }
-    val towerMaxHp = towerHp
-    var elapsed by remember { mutableStateOf(0f) }
-    var towerShake by remember { mutableStateOf(0f) }
-    var towerX by remember { mutableStateOf(600f) }
-    var groundYState by remember { mutableStateOf(0f) }
+fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, onFinish: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    val spriteNames = listOf("goblin","dragon","barbarian","archer","knight","giant","wizard","healer","assassin","sorceress","skeleton","minotaur","phoenix","golem","demon")
+    val spriteMap = remember { spriteNames.associateWith { loadBattleBitmap(context, it) } }
+    var elapsed by remember { mutableFloatStateOf(0f) }
+    var elixir by remember { mutableFloatStateOf(5f) }
+    var selectedCard by remember { mutableIntStateOf(-1) }
     var finished by remember { mutableStateOf(false) }
     var victory by remember { mutableStateOf(false) }
-    val damageNumbers = remember { mutableStateListOf<DamageNumber>() }
-    val arrows = remember { mutableStateListOf<Arrow>() }
-    val particles = remember { mutableStateListOf<Particle>() }
-    val confetti = remember { mutableStateListOf<Confetti>() }
+    var resultAlpha by remember { mutableFloatStateOf(0f) }
+    var groundYState by remember { mutableFloatStateOf(0f) }
+    var screenShakeX by remember { mutableFloatStateOf(0f) }
+    var screenShakeY by remember { mutableFloatStateOf(0f) }
+    val deck = remember { mutableStateListOf<CardDef>().also { it.addAll(ALL_CARDS.shuffled()) } }
+    val hand = remember { mutableStateListOf<Int>().also { repeat(4) { i -> if (i < deck.size) it.add(i) } } }
+    val deployed = remember { mutableStateListOf<DeployedUnit>() }
+    val buildings = remember { mutableStateListOf<EnemyBuilding>() }
+    val projectiles = remember { mutableStateListOf<Projectile>() }
+    val spawnEffects = remember { mutableStateListOf<SpawnEffect>() }
+    val particles = remember { mutableStateListOf<HitParticle>() }
+    val floatingTexts = remember { mutableStateListOf<FloatingText>() }
+    val dmgPaint = remember { Paint().apply { textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true } }
+    val titlePaint = remember { Paint().apply { textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true } }
+    var buildingsInit by remember { mutableStateOf(false) }
+    var nextCardIdx by remember { mutableIntStateOf(4) }
 
-    val context = LocalContext.current
-    val towerBmp = remember { loadOptionalBitmap(context, "tower") }
-
-    val spriteNames = listOf(
-        "goblin", "dragon", "barbarian", "archer", "knight",
-        "giant", "wizard", "healer", "assassin", "sorceress",
-        "skeleton", "minotaur", "phoenix", "golem", "demon"
-    )
-    val spriteMap = remember {
-        spriteNames.associateWith { name -> loadOptionalBitmap(context, name) }
-    }
-
-    val titlePaint = remember {
-        Paint().apply {
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-            isAntiAlias = true
-        }
-    }
-    val dmgPaint = remember {
-        Paint().apply {
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-            isAntiAlias = true
-        }
-    }
-
-    LaunchedEffect(units) {
-        var troopTimer = 0.6f
-        var towerTimer = 1.0f
-        var arrowSpeed = 0.55f
-
+    LaunchedEffect(Unit) {
         while (true) {
             delay(16)
             val dt = 0.016f
             elapsed += dt
-            towerShake *= 0.85f
-
-            val alive = units.filter { !it.dead && it.hp > 0f }
-
-            units.forEachIndexed { i, u ->
-                val stopX = towerX - 110f - i * 40f
-                if (!u.dead && u.x < stopX) u.x += u.speed * dt
+            screenShakeX *= 0.85f; screenShakeY *= 0.85f
+            elixir = (elixir + dt / 2.8f).coerceAtMost(10f)
+            if (!buildingsInit && groundYState > 0f) {
+                buildings.addAll(listOf(
+                    EnemyBuilding(0.74f,0.22f,100f,130f,"HQ",500f,500f,Color(0xFF37474F),Color(0xFF263238),20),
+                    EnemyBuilding(0.60f,0.38f,55f,70f,"Barracks",250f,250f,Color(0xFF5D4037),Color(0xFF4E342E),12),
+                    EnemyBuilding(0.84f,0.36f,45f,65f,"Watchtower",200f,200f,Color(0xFF455A64),Color(0xFF37474F),18),
+                    EnemyBuilding(0.68f,0.50f,65f,40f,"Walls",180f,180f,Color(0xFF6D4C41),Color(0xFF5D4037),0),
+                    EnemyBuilding(0.88f,0.48f,40f,55f,"Cannon",150f,150f,Color(0xFF455A64),Color(0xFF37474F),22),
+                    EnemyBuilding(0.78f,0.52f,42f,42f,"Gold Storage",200f,200f,Color(0xFFFF8F00),Color(0xFFEF6C00),0,isResource=true),
+                    EnemyBuilding(0.55f,0.50f,42f,42f,"Elixir Storage",200f,200f,Color(0xFF9C27B0),Color(0xFF7B1FA2),0,isResource=true)
+                ))
+                buildingsInit = true
             }
+            spawnEffects.forEach { it.life -= dt * 2f }
+            spawnEffects.removeAll { it.life <= 0f }
+            val aliveBuildings = buildings.withIndex().filter { !it.value.destroyed }
 
-            troopTimer -= dt
-            if (troopTimer <= 0f && alive.isNotEmpty()) {
-                val attackers = alive.filter { it.x >= towerX - 160f }
-                if (attackers.isNotEmpty()) {
-                    troopTimer = 0.8f
-                    attackers.forEach { it.attackAnim = 1f }
-                    val totalDmg = attackers.sumOf { it.damage }
-                    towerCurrentHp = (towerCurrentHp - totalDmg).coerceAtLeast(0f)
-                    towerShake = 9f
-                    damageNumbers.add(DamageNumber("-$totalDmg", null))
-                }
-            }
-
-            towerTimer -= dt
-            if (towerTimer <= 0f && alive.isNotEmpty()) {
-                towerTimer = 1.2f
-                val nearest = alive.minByOrNull { it.x } ?: alive[0]
-                arrows.add(
-                    Arrow(
-                        target = nearest,
-                        fromX = towerX - 40f,
-                        fromY = groundYState - 120f
-                    )
-                )
-            }
-
-            val iterator = arrows.iterator()
-            while (iterator.hasNext()) {
-                val arrow = iterator.next()
-                arrow.progress += dt / arrowSpeed
-                if (arrow.progress >= 1f) {
-                    val target = arrow.target
-                    if (!target.dead) {
-                        target.hp = (target.hp - 30f).coerceAtLeast(0f)
-                        target.hitFlash = 1f
-                        damageNumbers.add(DamageNumber("-30", target))
-                        if (target.hp <= 0f) {
-                            target.dead = true
-                            target.deathAnim = 1f
-                            for (p in 0 until 10) {
-                                particles.add(
-                                    Particle(
-                                        x = target.x,
-                                        y = if (target.fly) groundYState - 150f else groundYState - 30f,
-                                        vx = Random.nextFloat() * 140f - 70f,
-                                        vy = -Random.nextFloat() * 140f
-                                    )
-                                )
-                            }
+            deployed.forEach { unit ->
+                if (unit.dead) { unit.deathAnim -= dt * 1.5f; return@forEach }
+                if (unit.spawnAnim > 0f) unit.spawnAnim -= dt * 3f
+                if (unit.card.ability == AbilityType.STEALTH && unit.stealthed) { unit.stealthTimer -= dt; if (unit.stealthTimer <= 0f) unit.stealthed = false }
+                if (unit.frozen > 0f) { unit.frozen -= dt; return@forEach }
+                if (unit.attackCooldown > 0f) unit.attackCooldown -= dt
+                if (unit.attackAnim > 0f) unit.attackAnim -= dt * 3f
+                if (unit.hitFlash > 0f) unit.hitFlash -= dt * 3f
+                if (unit.card.ability == AbilityType.HEALER) {
+                    unit.healCooldown -= dt
+                    if (unit.healCooldown <= 0f) {
+                        unit.healCooldown = 2.5f
+                        val nearby = deployed.filter { !it.dead && it != unit && abs(it.x - unit.x) < 120f }
+                        val weakest = nearby.minByOrNull { it.hp / it.maxHp }
+                        if (weakest != null && weakest.hp < weakest.maxHp) {
+                            weakest.hp = (weakest.hp + 30f).coerceAtMost(weakest.maxHp)
+                            floatingTexts.add(FloatingText("+30", weakest.x, weakest.y - 40f, 1f, android.graphics.Color.rgb(76,175,80)))
+                            repeat(5) { particles.add(HitParticle(weakest.x + Random.nextFloat()*20f-10f, weakest.y-20f, Random.nextFloat()*10f-5f, -Random.nextFloat()*30f-10f, 0.8f, Color(0xFF4CAF50), 3f)) }
                         }
                     }
-                    iterator.remove()
+                    return@forEach
                 }
-            }
-
-            units.forEach {
-                if (it.attackAnim > 0f) it.attackAnim -= dt * 3f
-                if (it.hitFlash > 0f) it.hitFlash -= dt * 2.5f
-                if (it.deathAnim > 0f) it.deathAnim -= dt * 1.5f
-            }
-            particles.forEach {
-                it.life -= dt * 2f
-                it.x += it.vx * dt
-                it.y += it.vy * dt
-            }
-            particles.removeAll { it.life <= 0f }
-
-            damageNumbers.forEach { it.life -= dt * 0.8f }
-            damageNumbers.removeAll { it.life <= 0f }
-
-            if (!finished) {
-                if (towerCurrentHp <= 0f) {
-                    victory = true
-                    finished = true
-                    spawnConfetti(confetti)
-                } else if (alive.isEmpty() && elapsed > 3f) {
-                    victory = false
-                    finished = true
-                    spawnConfetti(confetti)
+                if (unit.card.ability == AbilityType.CHARGE && unit.chargeTimer > 0f) { unit.chargeTimer -= dt; if (unit.chargeTimer <= 0f) unit.charged = true }
+                if (unit.targetBuilding < 0 || unit.targetBuilding >= buildings.size || buildings[unit.targetBuilding].destroyed) {
+                    val targetIdx = if (unit.card.ability == AbilityType.FAST) {
+                        aliveBuildings.indexOfFirst { it.value.isResource }.let { if (it >= 0) aliveBuildings[it].index else aliveBuildings.minByOrNull { dist(unit.x, unit.y, it.value.x, it.value.y) }?.index ?: -1 }
+                    } else aliveBuildings.minByOrNull { dist(unit.x, unit.y, it.value.x, it.value.y) }?.index ?: -1
+                    unit.targetBuilding = targetIdx
                 }
-            }
-
-            confetti.forEach { c ->
-                c.life -= dt * 0.35f
-                c.y += c.vy * dt
-                c.x += c.vx * dt
-                c.vy += 60f * dt
-                c.rot += c.spin * dt
-            }
-            confetti.removeAll { it.life <= 0f }
-
-            if (finished) {
-                delay(1600)
-                onFinish(victory)
-                return@LaunchedEffect
-            }
-        }
-    }
-
-    Canvas(Modifier.fillMaxSize()) {
-        towerX = size.width * 0.74f
-        val groundY = size.height * 0.74f
-        groundYState = groundY
-        val w = size.width
-        val h = size.height
-
-        drawRect(Color(0xFF16233F), size = Size(w, h))
-        drawCircle(Color(0xFFF5F5DC), radius = w * 0.06f, center = Offset(w * 0.12f, h * 0.12f))
-        drawCircle(Color(0xFF16233F), radius = w * 0.05f, center = Offset(w * 0.14f, h * 0.10f))
-        repeat(12) { s ->
-            val sx = w * (0.05f + 0.9f * s / 11f)
-            val sy = h * (0.04f + 0.1f * (s % 3))
-            drawCircle(Color.White, radius = 1.5f, center = Offset(sx, sy))
-        }
-
-        drawRect(Color(0xFF2E7D32), topLeft = Offset(0f, groundY), size = Size(w, h - groundY))
-        drawLine(Color(0xFF388E3C), Offset(0f, groundY), Offset(w, groundY), strokeWidth = 4f)
-
-        drawTower(towerX, groundY, towerShake, towerCurrentHp / towerMaxHp, towerName, w, towerBmp)
-
-        arrows.forEach { arrow ->
-            val tx = arrow.target.x
-            val ty = if (arrow.target.fly) groundY - 150f else groundY - 30f
-            val ax = arrow.fromX + (tx - arrow.fromX) * arrow.progress
-            val ay = arrow.fromY + (ty - arrow.fromY) * arrow.progress
-            drawLine(
-                Color(0xFFFFF59D),
-                Offset(ax, ay),
-                Offset(ax + 14f, ay - 10f),
-                strokeWidth = 3.5f,
-                cap = StrokeCap.Round
-            )
-        }
-
-        units.forEach { u ->
-            if (!u.dead) {
-                val lunge = if (u.attackAnim > 0f) sin(u.attackAnim * PI).toFloat() * 18f else 0f
-                val yBase = if (u.fly) {
-                    groundY - 150f + sin(elapsed * 3f + u.x * 0.01f) * 10f
-                } else {
-                    groundY - 6f
-                }
-                val drawX = u.x + lunge
-
-                val bmp = spriteMap[u.spriteName]
-                if (bmp != null) {
-                    val spriteW = if (u.fly) 64 else 48
-                    val spriteH = if (u.fly) 56 else 56
-                    drawImage(
-                        bmp,
-                        dstOffset = IntOffset((drawX - spriteW / 2).toInt(), (yBase - spriteH).toInt()),
-                        dstSize = IntSize(spriteW, spriteH)
-                    )
-                } else {
-                    when (u.spriteName) {
-                        "goblin" -> drawGoblin(drawX, yBase, null)
-                        "dragon" -> drawDragon(drawX, yBase, null)
-                        "barbarian" -> drawMeleeHero(drawX, yBase, Color(0xFFD4A017), Color(0xFF8B6914))
-                        "archer" -> drawRangedHero(drawX, yBase, Color(0xFF2E7D32), Color(0xFF1B5E20))
-                        "knight" -> drawMeleeHero(drawX, yBase, Color(0xFF90CAF9), Color(0xFF1565C0))
-                        "giant" -> drawGiant(drawX, yBase)
-                        "wizard" -> drawRangedHero(drawX, yBase, Color(0xFF1565C0), Color(0xFF0D47A1))
-                        "healer" -> drawRangedHero(drawX, yBase, Color(0xFFFFF9C4), Color(0xFFF57F17))
-                        "assassin" -> drawMeleeHero(drawX, yBase, Color(0xFF4A148C), Color(0xFF1A0033))
-                        "sorceress" -> drawRangedHero(drawX, yBase, Color(0xFF03A9F4), Color(0xFF01579B))
-                        "skeleton" -> drawMeleeHero(drawX, yBase, Color(0xFFBDBDBD), Color(0xFF616161))
-                        "minotaur" -> drawGiant(drawX, yBase)
-                        "phoenix" -> drawDragon(drawX, yBase, null)
-                        "golem" -> drawGiant(drawX, yBase)
-                        "demon" -> drawDragon(drawX, yBase, null)
-                        else -> drawGoblin(drawX, yBase, null)
+                if (unit.targetBuilding >= 0 && unit.targetBuilding < buildings.size) {
+                    val b = buildings[unit.targetBuilding]
+                    if (b.destroyed) { unit.targetBuilding = -1; return@forEach }
+                    val d = dist(unit.x, unit.y, b.x, b.y)
+                    val attackRange = if (unit.card.isRanged) 160f else 55f
+                    if (d > attackRange) {
+                        val spd = unit.speed * 120f * if (unit.charged) 2.5f else 1f
+                        val dx = (b.x - unit.x) / d; val dy = (b.y - unit.y) / d
+                        unit.x += dx * spd * dt; unit.y += dy * spd * dt
+                        if (unit.charged && d < attackRange * 2f) {
+                            unit.charged = false
+                            val cDmg = unit.damage * 3
+                            b.hp -= cDmg; b.hitFlash = 1f; unit.attackAnim = 1f
+                            screenShakeX = Random.nextFloat()*10f-5f; screenShakeY = Random.nextFloat()*6f-3f
+                            floatingTexts.add(FloatingText("-$cDmg", b.x, b.y-b.h/2-10f, 1f, android.graphics.Color.rgb(255,82,82)))
+                            repeat(10) { particles.add(HitParticle(b.x+Random.nextFloat()*30f-15f, b.y, Random.nextFloat()*80f-40f, -Random.nextFloat()*60f, 0.6f, Color(0xFFFF6F00), 4f)) }
+                            if (b.hp <= 0f) { b.destroyed = true; b.deathAnim = 1f }
+                            unit.targetBuilding = -1
+                        }
+                    } else if (unit.attackCooldown <= 0f) {
+                        unit.attackCooldown = if (unit.card.isRanged) 1.2f else 1.0f
+                        unit.attackAnim = 1f
+                        var dmg = unit.damage
+                        if (unit.card.ability == AbilityType.RAGE && unit.hp < unit.maxHp * 0.5f) dmg *= 2
+                        if (unit.card.isRanged) {
+                            projectiles.add(Projectile(unit.x, unit.y-20f, b.x, b.y, 0f, dmg, false, unit.card.color))
+                        } else {
+                            b.hp -= dmg; b.hitFlash = 1f
+                            screenShakeX = Random.nextFloat()*6f-3f
+                            floatingTexts.add(FloatingText("-$dmg", b.x, b.y-b.h/2-10f, 1f, android.graphics.Color.rgb(255,82,82)))
+                            if (unit.card.ability == AbilityType.SPLASH) {
+                                aliveBuildings.forEach { (idx, ob) ->
+                                    if (idx != unit.targetBuilding && !ob.destroyed && dist(b.x,b.y,ob.x,ob.y) < 100f) { ob.hp -= dmg/2; ob.hitFlash = 1f }
+                                }
+                                repeat(8) { particles.add(HitParticle(b.x+Random.nextFloat()*30f-15f, b.y, Random.nextFloat()*100f-50f, -Random.nextFloat()*80f, 0.5f, unit.card.color, 5f)) }
+                            }
+                            if (unit.card.ability == AbilityType.FREEZE) { aliveBuildings.forEach { (_, ob) -> if (!ob.destroyed && dist(b.x,b.y,ob.x,ob.y) < 100f) ob.hitFlash = 0.5f } }
+                            repeat(5) { particles.add(HitParticle(b.x+Random.nextFloat()*20f-10f, b.y, Random.nextFloat()*60f-30f, -Random.nextFloat()*50f, 0.5f, unit.card.color, 3f)) }
+                        }
+                        if (b.hp <= 0f) { b.destroyed = true; b.deathAnim = 1f; unit.targetBuilding = -1 }
                     }
                 }
-
-                if (u.hitFlash > 0f) {
-                    drawCircle(
-                        Color(1f, 1f, 1f, alpha = u.hitFlash.coerceIn(0f, 1f) * 0.8f),
-                        radius = if (u.fly) 32f else 22f,
-                        center = Offset(drawX, yBase)
-                    )
-                }
-                drawTroopHpBar(u.x, yBase, u.hp / u.maxHp, u.fly)
-            } else if (u.deathAnim > 0f) {
-                val r = (1f - u.deathAnim) * 70f + 8f
-                drawCircle(
-                    Color(1f, 1f, 1f, alpha = u.deathAnim.coerceIn(0f, 1f) * 0.9f),
-                    radius = r,
-                    center = Offset(u.x, if (u.fly) groundY - 150f else groundY - 30f)
-                )
             }
-        }
 
-        particles.forEach { p ->
-            drawCircle(
-                Color(0xFFFFC107).copy(alpha = p.life.coerceIn(0f, 1f)),
-                radius = 5f,
-                center = Offset(p.x, p.y)
-            )
-        }
+            val toSpawn = mutableListOf<DeployedUnit>()
+            deployed.filter { !it.dead && it.card.ability == AbilityType.SUMMON && it.abilityTimer == 0f && elapsed > 2f }.forEach { u ->
+                if (Random.nextFloat() < 0.005f) {
+                    u.abilityTimer = 5f
+                    val sc = CardDef("Skeleton","skeleton",0,40,10,1.5f,false,AbilityType.NONE,Color(0xFFBDBDBD))
+                    toSpawn.add(DeployedUnit(sc, u.x+Random.nextFloat()*40f-20f, u.y+Random.nextFloat()*20f-10f, 40f, 40f, 10, 1.5f))
+                }
+            }
+            deployed.forEach { if (it.abilityTimer > 0f) it.abilityTimer -= dt }
+            deployed.addAll(toSpawn)
 
-        damageNumbers.forEach { d ->
-            val alpha = d.life.coerceIn(0f, 1f)
-            val dx = d.unit?.x ?: towerX
-            val dyBase = d.unit?.let { if (it.fly) groundY - 150f else groundY - 55f }
-                ?: (groundY - 140f)
-            val dy = dyBase - (1f - d.life) * 70f
-            dmgPaint.textSize = 30f
-            dmgPaint.color = android.graphics.Color.argb(
-                (alpha * 255).toInt(), 255, 82, 82
-            )
-            drawContext.canvas.nativeCanvas.drawText(d.text, dx, dy, dmgPaint)
-        }
-
-        if (elapsed < 1.2f) {
-            val alpha = (1f - elapsed / 1.2f)
-            titlePaint.textSize = w * 0.11f
-            titlePaint.color = android.graphics.Color.argb(
-                (alpha * 255).toInt(), 255, 193, 7
-            )
-            drawContext.canvas.nativeCanvas.drawText("BATTLE", w / 2f, h * 0.42f, titlePaint)
-        }
-
-        if (finished) {
-            val tint = if (victory) Color(0xCC000000) else Color(0xCC2A0505)
-            drawRect(tint, size = Size(w, h))
-
-            confetti.forEach { c ->
-                withTransform({
-                    translate(c.x, c.y)
-                    rotate(c.rot * 57.3f)
-                }) {
-                    drawRect(
-                        c.color.copy(alpha = c.life.coerceIn(0f, 1f)),
-                        topLeft = Offset(-c.size / 2, -c.size / 2),
-                        size = Size(c.size, c.size * 0.6f)
-                    )
+            val projIter = projectiles.iterator()
+            while (projIter.hasNext()) {
+                val p = projIter.next()
+                p.progress += dt / 0.4f
+                p.trail.add(Offset(p.x+(p.tx-p.x)*p.progress, p.y+(p.ty-p.y)*p.progress-(1f-p.progress)*30f))
+                if (p.trail.size > 6) p.trail.removeAt(0)
+                if (p.progress >= 1f) {
+                    if (p.fromEnemy) {
+                        val target = deployed.filter { !it.dead && !it.stealthed }.minByOrNull { dist(p.tx,p.ty,it.x,it.y) }
+                        if (target != null && dist(p.tx,p.ty,target.x,target.y) < 60f) {
+                            target.hp -= p.damage; target.hitFlash = 1f
+                            floatingTexts.add(FloatingText("-${p.damage}", target.x, target.y-40f, 1f, android.graphics.Color.rgb(255,82,82)))
+                            if (target.hp <= 0f) {
+                                if (target.card.ability == AbilityType.REVIVE && !target.revived) {
+                                    target.revived = true; target.hp = target.maxHp * 0.5f
+                                    floatingTexts.add(FloatingText("REVIVE!", target.x, target.y-50f, 1.5f, android.graphics.Color.rgb(255,152,0)))
+                                    repeat(10) { particles.add(HitParticle(target.x, target.y-20f, Random.nextFloat()*80f-40f, -Random.nextFloat()*80f, 1f, Color(0xFFFF8F00), 4f)) }
+                                } else { target.dead = true; target.deathAnim = 1f; repeat(8) { particles.add(HitParticle(target.x, target.y, Random.nextFloat()*60f-30f, -Random.nextFloat()*60f, 0.8f, target.card.color, 3f)) } }
+                            }
+                        }
+                    } else {
+                        val bi = buildings.indexOfFirst { !it.destroyed && abs(it.x-p.tx) < it.w && abs(it.y-p.ty) < it.h }
+                        if (bi >= 0) { val b = buildings[bi]; b.hp -= p.damage; b.hitFlash = 1f; screenShakeX = Random.nextFloat()*4f-2f; floatingTexts.add(FloatingText("-${p.damage}", b.x, b.y-b.h/2, 1f, android.graphics.Color.rgb(255,82,82))); if (b.hp <= 0f) { b.destroyed = true; b.deathAnim = 1f } }
+                    }
+                    projIter.remove()
                 }
             }
 
-            val cx = w / 2f
-            val cy = h * 0.34f
-            val shieldS = w * 0.13f
-
-            drawResultShield(cx, cy, shieldS, victory)
-
-            val bannerY = cy + shieldS * 1.7f
-            val bannerW = w * 0.72f
-            drawRect(
-                Brush.horizontalGradient(listOf(VictoryBlueDark, VictoryBlue, VictoryBlueDark)),
-                topLeft = Offset(cx - bannerW / 2, bannerY),
-                size = Size(bannerW, h * 0.07f)
-            )
-            drawRect(
-                Color(0x88FFFFFF),
-                topLeft = Offset(cx - bannerW / 2, bannerY - 4f),
-                size = Size(bannerW, 4f)
-            )
-            titlePaint.textSize = h * 0.055f
-            titlePaint.color = android.graphics.Color.rgb(255, 255, 255)
-            drawContext.canvas.nativeCanvas.drawText(
-                if (victory) "VICTORY!" else "DEFEAT",
-                cx, bannerY + h * 0.048f, titlePaint
-            )
-
-            titlePaint.textSize = h * 0.045f
-            titlePaint.color = if (victory) android.graphics.Color.rgb(255, 213, 79)
-            else android.graphics.Color.rgb(255, 120, 120)
-            drawContext.canvas.nativeCanvas.drawText(
-                if (victory) "+30 TROPHIES  +150 GOLD" else "-30 TROPHIES  +60 GOLD",
-                cx, bannerY + h * 0.10f, titlePaint
-            )
-
-            if (victory) {
-                drawChest(cx - w * 0.28f, bannerY + h * 0.12f, w * 0.075f)
-                drawChest(cx + w * 0.28f, bannerY + h * 0.12f, w * 0.075f)
+            buildings.forEach { b ->
+                if (b.destroyed) { b.deathAnim = (b.deathAnim - dt * 1.5f).coerceAtLeast(0f); return@forEach }
+                if (b.hitFlash > 0f) b.hitFlash -= dt * 3f
+                if (b.attackDamage <= 0) return@forEach
+                b.attackCooldown -= dt
+                if (b.attackCooldown <= 0f) {
+                    val target = deployed.filter { !it.dead && !it.stealthed }.minByOrNull { dist(b.x,b.y,it.x,it.y) }
+                    if (target != null && dist(b.x,b.y,target.x,target.y) < 250f) {
+                        b.attackCooldown = 1.8f
+                        projectiles.add(Projectile(b.x, b.y-b.h*0.3f, target.x, target.y, 0f, b.attackDamage, true, Color(0xFFFF5252)))
+                    }
+                }
             }
 
-            titlePaint.textSize = h * 0.03f
-            titlePaint.color = android.graphics.Color.rgb(180, 190, 200)
-            drawContext.canvas.nativeCanvas.drawText("TAP THE SCREEN TO CONTINUE", cx, h * 0.90f, titlePaint)
+            particles.forEach { it.life -= dt*2f; it.x += it.vx*dt; it.y += it.vy*dt; it.vy += 80f*dt }
+            particles.removeAll { it.life <= 0f }
+            floatingTexts.forEach { it.life -= dt*1.2f; it.y -= 30f*dt }
+            floatingTexts.removeAll { it.life <= 0f }
+
+            if (!finished && buildingsInit) {
+                if (buildings.all { it.destroyed }) { victory = true; finished = true }
+                else if (deployed.isNotEmpty() && deployed.all { it.dead } && elapsed > 3f) { victory = false; finished = true }
+                else if (deployed.isEmpty() && elapsed > 5f && elixir < 2f) { victory = false; finished = true }
+            }
+            if (finished) resultAlpha = (resultAlpha + dt * 1.5f).coerceAtMost(1f)
+            if (finished && resultAlpha >= 0.95f) { delay(2000); onFinish(victory); return@LaunchedEffect }
         }
+    }
+    Box(Modifier.fillMaxSize()) {
+        Canvas(Modifier.fillMaxSize().pointerInput(selectedCard, buildingsInit) {
+            detectTapGestures { offset ->
+                if (selectedCard >= 0 && hand[selectedCard] < deck.size) {
+                    val cardIdx = hand[selectedCard]
+                    val card = deck[cardIdx]
+                    if (elixir >= card.cost) {
+                        elixir -= card.cost
+                        val unit = DeployedUnit(card = card, x = offset.x, y = offset.y.coerceIn(groundYState * 0.4f, groundYState - 5f), hp = card.hp.toFloat(), maxHp = card.hp.toFloat(), damage = card.damage, speed = card.speed, stealthed = card.ability == AbilityType.STEALTH)
+                        deployed.add(unit)
+                        spawnEffects.add(SpawnEffect(offset.x, offset.y.coerceIn(groundYState * 0.4f, groundYState - 5f)))
+                        if (nextCardIdx < deck.size) { hand[selectedCard] = nextCardIdx; nextCardIdx = (nextCardIdx + 1) % deck.size }
+                        selectedCard = -1
+                    }
+                }
+            }
+        }) {
+            val w = size.width; val h = size.height; val groundY = h * 0.72f
+            groundYState = groundY
+            withTransform({ translate(screenShakeX, screenShakeY) }) {
+                drawBattleBg(w, h, groundY, elapsed)
+                buildings.forEach { b ->
+                    if (!b.destroyed) drawBattleBuilding(b, elapsed)
+                    else if (b.deathAnim > 0f) { drawRect(Color.White.copy(alpha = b.deathAnim.coerceIn(0f,1f)*0.5f), topLeft=Offset(b.x-b.w/2,b.y-b.h/2), size=Size(b.w,b.h)); drawCircle(Color(0xFFFF6F00).copy(alpha=b.deathAnim.coerceIn(0f,1f)*0.3f), radius=(1f-b.deathAnim)*60f, center=Offset(b.x,b.y)) }
+                }
+                if (selectedCard >= 0) drawRect(Color(0xFF4CAF50).copy(alpha=0.05f+0.03f*sin(elapsed*4f).toFloat()), topLeft=Offset(0f,groundY*0.4f), size=Size(w,groundY*0.55f))
+                projectiles.forEach { p ->
+                    val pos = Offset(p.x+(p.tx-p.x)*p.progress, p.y+(p.ty-p.y)*p.progress-(1f-p.progress)*30f)
+                    if (p.trail.size >= 2) { for (i in 1 until p.trail.size) { val a=i.toFloat()/p.trail.size; drawLine(p.color.copy(alpha=a*0.5f),p.trail[i-1],p.trail[i],strokeWidth=2f*a,cap=StrokeCap.Round) } }
+                    drawCircle(p.color,radius=4f,center=pos); drawCircle(p.color.copy(alpha=0.3f),radius=8f,center=pos)
+                }
+                deployed.forEach { u ->
+                    if (u.dead) { if (u.deathAnim > 0f) { drawCircle(Color.White.copy(alpha=u.deathAnim.coerceIn(0f,1f)*0.7f),radius=(1f-u.deathAnim)*40f+5f,center=Offset(u.x,u.y)) }; return@forEach }
+                    val spawnScale = if (u.spawnAnim > 0f) 1f+u.spawnAnim*0.5f else 1f
+                    val idle = sin(elapsed*2f+u.x*0.01f)*2f; val drawY = u.y+idle
+                    drawOval(Color.Black.copy(alpha=0.25f),topLeft=Offset(u.x-16f,drawY+2f),size=Size(32f,8f))
+                    val alpha = if (u.stealthed) 0.3f else 1f
+                    if (u.spawnAnim > 0f) drawCircle(u.card.color.copy(alpha=u.spawnAnim*0.4f),radius=30f*(1f-u.spawnAnim*0.3f),center=Offset(u.x,drawY))
+                    if (u.attackAnim > 0.3f) drawCircle(u.card.color.copy(alpha=u.attackAnim*0.3f),radius=25f,center=Offset(u.x,drawY-15f))
+                    val bmp = spriteMap[u.card.spriteName]
+                    if (bmp != null) { val sz=(36f*spawnScale).toInt(); drawImage(bmp,dstOffset=IntOffset((u.x-sz/2).toInt(),(drawY-sz-5f).toInt()),dstSize=IntSize(sz,sz)) }
+                    else drawCircle(u.card.color.copy(alpha=alpha),radius=14f*spawnScale,center=Offset(u.x,drawY-18f))
+                    if (u.hitFlash > 0f) drawCircle(Color.White.copy(alpha=u.hitFlash*0.7f),radius=18f,center=Offset(u.x,drawY-15f))
+                    val hpRatio = u.hp/u.maxHp; val barW=30f; val barH=4f; val barTop=drawY-40f
+                    drawRect(Color(0x66000000),topLeft=Offset(u.x-barW/2,barTop),size=Size(barW,barH))
+                    val hpC = if (hpRatio>0.5f) Color(0xFF4CAF50) else if (hpRatio>0.25f) Color(0xFFFFC107) else Color(0xFFEF5350)
+                    drawRect(hpC,topLeft=Offset(u.x-barW/2,barTop),size=Size(barW*hpRatio.coerceIn(0f,1f),barH))
+                    if (u.card.ability == AbilityType.HEALER) drawCircle(Color(0xFF4CAF50).copy(alpha=0.2f+0.1f*sin(elapsed*3f).toFloat()),radius=35f,center=Offset(u.x,drawY-15f))
+                }
+                spawnEffects.forEach { s -> drawCircle(Color(0xFF4FC3F7).copy(alpha=s.life.coerceIn(0f,1f)*0.3f),radius=30f*(1f-s.life),center=Offset(s.x,s.y)); drawCircle(Color(0xFF81D4FA).copy(alpha=s.life.coerceIn(0f,1f)*0.5f),radius=15f*(1f-s.life*0.5f),center=Offset(s.x,s.y)) }
+                particles.forEach { p -> drawCircle(p.color.copy(alpha=p.life.coerceIn(0f,1f)),radius=p.size*p.life.coerceIn(0f,1f),center=Offset(p.x,p.y)) }
+                floatingTexts.forEach { ft -> dmgPaint.textSize=26f; dmgPaint.color=android.graphics.Color.argb((ft.life.coerceIn(0f,1f)*255).toInt(),android.graphics.Color.red(ft.color),android.graphics.Color.green(ft.color),android.graphics.Color.blue(ft.color)); drawContext.canvas.nativeCanvas.drawText(ft.text,ft.x,ft.y,dmgPaint) }
+                if (finished) drawResultOverlay(w,h,victory,resultAlpha,titlePaint)
+            }
+        }
+        Box(Modifier.align(Alignment.TopCenter).padding(top=8.dp)) {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Text("Elixir",color=Color(0xFFE040FB),fontWeight=FontWeight.Bold,fontSize=11.sp)
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.width(180.dp).height(14.dp).shadow(2.dp,RoundedCornerShape(7.dp)).background(Color(0xFF1A1A2E),RoundedCornerShape(7.dp)).border(1.dp,Color(0xFF9C27B0).copy(alpha=0.5f),RoundedCornerShape(7.dp))) {
+                    Box(Modifier.fillMaxWidth((elixir/10f).coerceIn(0f,1f)).height(14.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9C27B0),Color(0xFFE040FB))),RoundedCornerShape(7.dp)))
+                }
+                Spacer(Modifier.width(6.dp)); Text("${elixir.toInt()}/10",color=Color(0xFFE040FB),fontWeight=FontWeight.Bold,fontSize=11.sp)
+            }
+        }
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=8.dp)) {
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.padding(horizontal=8.dp)) {
+                hand.forEachIndexed { idx, deckIdx -> if (deckIdx < deck.size) { val card=deck[deckIdx]; val isSel=idx==selectedCard; val canAff=elixir>=card.cost; BattleCard(card=card,selected=isSel,canAfford=canAff,spriteMap=spriteMap,onClick={ if(canAff) selectedCard=if(selectedCard==idx)-1 else idx }) } }
+            }
+        }
+        if (elapsed < 2f && deployed.isEmpty()) { val a=(1f-elapsed/2f).coerceIn(0f,1f); Text("SELECT A CARD, THEN TAP TO DEPLOY",color=Color(0xFFFFD54F).copy(alpha=a),fontWeight=FontWeight.Bold,fontSize=14.sp,modifier=Modifier.align(Alignment.Center).padding(top=80.dp)) }
     }
 }
 
-private fun DrawScope.drawTower(
-    cx: Float, groundY: Float, shake: Float,
-    hpRatio: Float, name: String, w: Float, bmp: ImageBitmap?
-) {
-    val ox = cx + shake
-    val bodyW = 90f
-    val bodyH = if (bmp != null) 120f else 180f
-    val bodyTop = groundY - bodyH
+@Composable
+private fun BattleCard(card: CardDef, selected: Boolean, canAfford: Boolean, spriteMap: Map<String, ImageBitmap?>, onClick: () -> Unit) {
+    val ctx = LocalContext.current; val spriteResId = ctx.resources.getIdentifier(card.spriteName,"drawable",ctx.packageName)
+    val borderC = if (selected) Color(0xFFFFD54F) else if (canAfford) card.color.copy(alpha=0.5f) else Color(0xFF424242)
+    Column(Modifier.scale(if(selected)1.1f else 1f).shadow(if(selected)8.dp else 3.dp,RoundedCornerShape(10.dp)).size(width=68.dp,height=90.dp).background(Brush.verticalGradient(listOf(if(canAfford)BgCard else Color(0xFF1A1A1A),BgPanel)),RoundedCornerShape(10.dp)).border(2.dp,borderC,RoundedCornerShape(10.dp)).clickable(enabled=canAfford){onClick()}.padding(4.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+        Box(Modifier.size(40.dp).background(card.color.copy(alpha=if(canAfford)0.15f else 0.05f),RoundedCornerShape(6.dp)),contentAlignment=Alignment.Center) {
+            if (spriteResId!=0) Image(painter=painterResource(id=spriteResId),contentDescription=card.name,modifier=Modifier.size(32.dp),contentScale=ContentScale.Fit) else Box(Modifier.size(24.dp).background(card.color.copy(alpha=0.6f),CircleShape))
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(card.name,color=if(canAfford)TextWhite else TextGray,fontWeight=FontWeight.Bold,fontSize=7.sp,maxLines=1)
+        Box(Modifier.size(18.dp).background(Color(0xFF9C27B0),CircleShape).border(1.dp,Color(0xFFE040FB),CircleShape),contentAlignment=Alignment.Center) { Text("${card.cost}",color=Color.White,fontWeight=FontWeight.Bold,fontSize=9.sp) }
+    }
+}
+private fun dist(x1: Float, y1: Float, x2: Float, y2: Float): Float { val dx=x2-x1; val dy=y2-y1; return sqrt(dx*dx+dy*dy) }
 
-    val barW = 120f
-    val barH = 14f
-    val barTop = bodyTop - 36f
-    drawRoundRect(
-        Color(0xFF111111),
-        topLeft = Offset(ox - barW / 2 - 3f, barTop - 3f),
-        size = Size(barW + 6f, barH + 6f),
-        cornerRadius = CornerRadius(5f)
-    )
-    val barColor = if (hpRatio > 0.5f) Color(0xFF4CAF50)
-    else if (hpRatio > 0.25f) Color(0xFFFFC107) else Color(0xFFEF5350)
-    drawRoundRect(
-        barColor,
-        topLeft = Offset(ox - barW / 2, barTop),
-        size = Size(barW * hpRatio.coerceIn(0f, 1f), barH),
-        cornerRadius = CornerRadius(5f)
-    )
+private fun DrawScope.drawBattleBg(w: Float, h: Float, groundY: Float, elapsed: Float) {
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF0A0E27),Color(0xFF141B3D),Color(0xFF1A2347))),size=Size(w,h+20f))
+    val moonX=w*0.85f; val moonY=h*0.1f; val moonR=w*0.05f
+    drawCircle(Color(0x30FFFFFF),radius=moonR*2.5f,center=Offset(moonX,moonY))
+    drawCircle(Color(0x50FFFFFF),radius=moonR*1.8f,center=Offset(moonX,moonY))
+    drawCircle(Color(0xFFE8EAF6),radius=moonR,center=Offset(moonX,moonY))
+    drawCircle(Color(0xFF141B3D),radius=moonR*0.7f,center=Offset(moonX+moonR*0.25f,moonY-moonR*0.15f))
+    repeat(30) { i -> val sx=w*((i*37%100)/100f); val sy=h*(0.02f+0.18f*(i*13%7)/6f); val tw=0.2f+0.3f*sin(elapsed*2f+i*0.7f).toFloat(); drawCircle(Color.White.copy(alpha=tw),radius=1f+(i%3)*0.5f,center=Offset(sx,sy)) }
+    repeat(4) { i -> val cx=((elapsed*(6f+i*3f)+i*300f)%(w+300f))-150f; val cy=h*(0.08f+i*0.06f); val cs=100f+i*30f; drawOval(Color(0xFF2A3055).copy(alpha=0.08f+i*0.02f),topLeft=Offset(cx,cy),size=Size(cs,cs*0.35f)) }
+    val mtn1=Path().apply { moveTo(0f,groundY+10f); lineTo(w*0.08f,groundY-h*0.15f); lineTo(w*0.2f,groundY-h*0.22f); lineTo(w*0.35f,groundY-h*0.12f); lineTo(w*0.5f,groundY-h*0.18f); lineTo(w*0.65f,groundY-h*0.08f); lineTo(w*0.8f,groundY-h*0.14f); lineTo(w,groundY+10f); close() }
+    drawPath(mtn1,Color(0xFF1A2744))
+    val mtn2=Path().apply { moveTo(0f,groundY+10f); lineTo(w*0.1f,groundY-h*0.08f); lineTo(w*0.25f,groundY-h*0.14f); lineTo(w*0.4f,groundY-h*0.06f); lineTo(w*0.55f,groundY-h*0.1f); lineTo(w*0.7f,groundY-h*0.04f); lineTo(w*0.85f,groundY-h*0.08f); lineTo(w,groundY+10f); close() }
+    drawPath(mtn2,Color(0xFF15203A))
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF1B3D1B),Color(0xFF153015),Color(0xFF0D200D))),topLeft=Offset(0f,groundY),size=Size(w,h-groundY))
+    drawLine(Color(0xFF2E5E2E),Offset(0f,groundY),Offset(w,groundY),strokeWidth=3f)
+}
 
-    if (bmp != null) {
-        drawImage(
-            bmp,
-            dstOffset = IntOffset((ox - 60f).toInt(), (groundY - 120f).toInt()),
-            dstSize = IntSize(120, 120)
-        )
+private fun DrawScope.drawBattleBuilding(b: EnemyBuilding, elapsed: Float) {
+    val cx=b.x; val cy=b.y; val top=cy-b.h/2
+    val flashC = if(b.hitFlash>0f) Color.White.copy(alpha=b.hitFlash*0.6f) else null
+    drawOval(Color(0x40000000),topLeft=Offset(cx-b.w*0.4f,cy+b.h*0.1f),size=Size(b.w*0.8f,b.h*0.15f))
+    when(b.name) {
+        "HQ" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(4f)); val roof=Path().apply { moveTo(cx-b.w*0.6f,top); lineTo(cx,top-b.h*0.25f); lineTo(cx+b.w*0.6f,top); close() }; drawPath(roof,b.roofColor); drawPath(roof,Color.White.copy(alpha=0.1f),style=Stroke(2f)); val fw=sin(elapsed*4f)*4f; drawLine(Color(0xFF5D4037),Offset(cx,top-b.h*0.25f),Offset(cx,top-b.h*0.55f),strokeWidth=3f); val flag=Path().apply { moveTo(cx,top-b.h*0.55f); lineTo(cx+18f,top-b.h*0.5f+fw); lineTo(cx,top-b.h*0.42f); close() }; drawPath(flag,Color(0xFFE53935)); drawCircle(Color(0xFFFFD54F).copy(alpha=0.3f+0.2f*sin(elapsed*3f).toFloat()),radius=8f,center=Offset(cx,top+b.h*0.6f)) }
+        "Barracks" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(3f)); val roof=Path().apply { moveTo(cx-b.w*0.55f,top); lineTo(cx,top-b.h*0.2f); lineTo(cx+b.w*0.55f,top); close() }; drawPath(roof,b.roofColor) }
+        "Watchtower" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,Color(0xFF2C3E50))),topLeft=Offset(cx-b.w*0.3f,top),size=Size(b.w*0.6f,b.h),cornerRadius=CornerRadius(2f)); drawRoundRect(b.roofColor,topLeft=Offset(cx-b.w/2,top),size=Size(b.w,12f),cornerRadius=CornerRadius(3f)); val tf=0.6f+0.3f*sin(elapsed*8f).toFloat(); drawCircle(Color(0xFFFF8F00).copy(alpha=tf),radius=4f,center=Offset(cx-b.w*0.35f,top+2f)); drawCircle(Color(0xFFFFD54F).copy(alpha=tf*0.5f),radius=8f,center=Offset(cx-b.w*0.35f,top+2f)); drawCircle(Color(0xFFFF8F00).copy(alpha=tf),radius=4f,center=Offset(cx+b.w*0.35f,top+2f)); drawCircle(Color(0xFFFFD54F).copy(alpha=tf*0.5f),radius=8f,center=Offset(cx+b.w*0.35f,top+2f)) }
+        "Walls" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(2f)); val mw=b.w/6f; repeat(6) { i -> drawRect(b.color,topLeft=Offset(cx-b.w/2+i*mw,top-8f),size=Size(mw*0.6f,8f)) } }
+        "Cannon" -> { drawOval(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top+b.h*0.3f),size=Size(b.w,b.h*0.5f)); val ba=-25f+sin(elapsed*0.5f).toFloat()*5f; withTransform({ translate(cx,top+b.h*0.4f); rotate(ba) }) { drawRoundRect(Color(0xFF37474F),topLeft=Offset(0f,-4f),size=Size(b.w*0.5f,8f),cornerRadius=CornerRadius(3f)) }; drawCircle(Color(0xFF5D4037),radius=6f,center=Offset(cx,top+b.h*0.5f)) }
+        else -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(3f)); if(b.isResource) { val glowPulse=0.3f+0.2f*sin(elapsed*2f).toFloat(); drawCircle(b.color.copy(alpha=glowPulse),radius=10f,center=Offset(cx,top+b.h*0.5f)) } }
+    }
+    if(flashC!=null) drawRect(flashC,topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h))
+    val hpRatio=b.hp/b.maxHp; val barW=b.w*1.2f; val barH=8f; val barTop=top-12f
+    drawRoundRect(Color(0xFF111111),topLeft=Offset(cx-barW/2-2f,barTop-2f),size=Size(barW+4f,barH+4f),cornerRadius=CornerRadius(4f))
+    val bc=if(hpRatio>0.5f) Color(0xFF4CAF50) else if(hpRatio>0.25f) Color(0xFFFFC107) else Color(0xFFEF5350)
+    drawRoundRect(bc,topLeft=Offset(cx-barW/2,barTop),size=Size(barW*hpRatio.coerceIn(0f,1f),barH),cornerRadius=CornerRadius(4f))
+    titleTextPaint().apply { textSize=16f; color=android.graphics.Color.rgb(200,200,200) }
+    drawContext.canvas.nativeCanvas.drawText(b.name,cx,cy+b.h/2+16f,titleTextPaint())
+}
+
+private fun DrawScope.drawResultOverlay(w: Float, h: Float, victory: Boolean, alpha: Float, paint: Paint) {
+    drawRect(if(victory) Color.Black.copy(alpha=alpha*0.7f) else Color(0xFF2A0505).copy(alpha=alpha*0.7f),size=Size(w,h))
+    val cx=w/2f; val cy=h*0.34f; val s=w*0.13f
+    val shield=Path().apply { moveTo(cx,cy-s); cubicTo(cx+s*0.95f,cy-s*0.8f,cx+s*1.08f,cy-s*0.1f,cx+s*0.75f,cy+s*0.45f); lineTo(cx,cy+s*1.05f); lineTo(cx-s*0.75f,cy+s*0.45f); cubicTo(cx-s*1.08f,cy-s*0.1f,cx-s*0.95f,cy-s*0.8f,cx,cy-s); close() }
+    if(victory) {
+        val crown=Path().apply { moveTo(cx-s*0.45f,cy-s*1.15f); lineTo(cx-s*0.28f,cy-s*1.5f); lineTo(cx-s*0.12f,cy-s*1.2f); lineTo(cx,cy-s*1.55f); lineTo(cx+s*0.12f,cy-s*1.2f); lineTo(cx+s*0.28f,cy-s*1.5f); lineTo(cx+s*0.45f,cy-s*1.15f); close() }
+        drawPath(shield,Brush.linearGradient(listOf(Color(0xFFF5A623).copy(alpha=alpha),Color(0xFFC4841D).copy(alpha=alpha))))
+        drawPath(crown,Color(0xFFF5A623).copy(alpha=alpha))
     } else {
-        drawRoundRect(
-            Color(0xFF546E7A),
-            topLeft = Offset(ox - bodyW / 2, bodyTop),
-            size = Size(bodyW, bodyH),
-            cornerRadius = CornerRadius(6f)
-        )
-
-        repeat(4) { i ->
-            drawRect(
-                Color(0xFF546E7A),
-                topLeft = Offset(ox - bodyW / 2 + 4f + i * 22f, bodyTop - 22f),
-                size = Size(18f, 22f)
-            )
-        }
-
-        drawCircle(Color(0xFFFFE082), radius = 15f, center = Offset(ox, bodyTop + 55f))
-        drawCircle(Color(0xFF2C2C2C), radius = 7f, center = Offset(ox, bodyTop + 55f))
-
-        drawArc(
-            Color(0xFF37474F), 180f, 180f, useCenter = false,
-            topLeft = Offset(ox - 20f, groundY - 55f),
-            size = Size(40f, 60f)
-        )
+        drawPath(shield,Brush.linearGradient(listOf(Color(0xFF9E9E9E).copy(alpha=alpha),Color(0xFF616161).copy(alpha=alpha))))
+        val crack=Path().apply { moveTo(cx-s*0.15f,cy-s); lineTo(cx+s*0.1f,cy-s*0.45f); lineTo(cx-s*0.05f,cy-s*0.15f); lineTo(cx+s*0.18f,cy+s*0.35f); lineTo(cx-s*0.05f,cy+s*0.75f) }
+        drawPath(crack,Color(0xFF212121).copy(alpha=alpha),style=Stroke(width=s*0.09f,cap=StrokeCap.Round))
     }
-
-    titleTextPaint().apply {
-        textSize = 22f
-        color = android.graphics.Color.rgb(224, 224, 224)
-    }
-    drawContext.canvas.nativeCanvas.drawText(name, ox, groundY + 22f, titleTextPaint())
+    val bannerY=cy+s*1.7f; val bannerW=w*0.72f
+    drawRect(Brush.horizontalGradient(listOf(Color(0xFF0D47A1).copy(alpha=alpha),Color(0xFF1565C0).copy(alpha=alpha),Color(0xFF0D47A1).copy(alpha=alpha))),topLeft=Offset(cx-bannerW/2,bannerY),size=Size(bannerW,h*0.07f))
+    paint.textSize=h*0.055f; paint.color=android.graphics.Color.argb((alpha*255).toInt(),255,255,255)
+    drawContext.canvas.nativeCanvas.drawText(if(victory)"VICTORY!"else"DEFEAT",cx,bannerY+h*0.048f,paint)
+    paint.textSize=h*0.045f; paint.color=android.graphics.Color.argb((alpha*255).toInt(),if(victory)255 else 255,if(victory)213 else 120,if(victory)79 else 120)
+    drawContext.canvas.nativeCanvas.drawText(if(victory)"+30 TROPHIES +150 GOLD"else"-30 TROPHIES +60 GOLD",cx,bannerY+h*0.10f,paint)
+    paint.textSize=h*0.03f; paint.color=android.graphics.Color.argb((alpha*200).toInt(),180,190,200)
+    drawContext.canvas.nativeCanvas.drawText("TAP TO CONTINUE",cx,h*0.90f,paint)
 }
 
-private fun DrawScope.drawGoblin(x: Float, y: Float, bmp: ImageBitmap?) {
-    if (bmp != null) {
-        drawImage(bmp, dstOffset = IntOffset((x - 24f).toInt(), (y - 52f).toInt()), dstSize = IntSize(48, 52))
-        return
-    }
-    val r = 20f
-    drawOval(Color(0x44000000), topLeft = Offset(x - r, y + 2f), size = Size(r * 2, 12f))
-    drawCircle(Color(0xFF66BB6A), radius = r, center = Offset(x, y))
-    drawCircle(Color(0xFF4CAF50), radius = 11f, center = Offset(x, y - 18f))
-    drawCircle(Color.White, radius = 3.5f, center = Offset(x - 4f, y - 19f))
-    drawCircle(Color.White, radius = 3.5f, center = Offset(x + 4f, y - 19f))
-    drawCircle(Color.Black, radius = 1.8f, center = Offset(x - 4f, y - 19f))
-    drawCircle(Color.Black, radius = 1.8f, center = Offset(x + 4f, y - 19f))
-    drawLine(Color(0xFF90A4AE), Offset(x + 14f, y - 8f), Offset(x + 24f, y - 22f), strokeWidth = 4f, cap = StrokeCap.Round)
-}
+private fun titleTextPaint(): Paint { return Paint().apply { textAlign=Paint.Align.CENTER; typeface=Typeface.DEFAULT_BOLD; isAntiAlias=true } }
 
-private fun DrawScope.drawDragon(x: Float, y: Float, bmp: ImageBitmap?) {
-    if (bmp != null) {
-        drawImage(bmp, dstOffset = IntOffset((x - 32f).toInt(), (y - 44f).toInt()), dstSize = IntSize(64, 48))
-        return
-    }
-    drawArc(Color(0xFFEF9A9A), 180f, 120f, useCenter = true, topLeft = Offset(x - 46f, y - 32f), size = Size(42f, 42f))
-    drawArc(Color(0xFFEF9A9A), 240f, 120f, useCenter = true, topLeft = Offset(x + 4f, y - 32f), size = Size(42f, 42f))
-    drawCircle(Color(0xFFEF5350), radius = 30f, center = Offset(x, y))
-    drawCircle(Color(0xFFFFCDD2), radius = 17f, center = Offset(x, y + 7f))
-    drawArc(Color(0xFFEF5350), 90f, 150f, useCenter = false, topLeft = Offset(x - 46f, y - 22f), size = Size(44f, 55f))
-    drawCircle(Color(0xFFC62828), radius = 18f, center = Offset(x + 26f, y - 16f))
-    drawCircle(Color(0xFFFFF176), radius = 4.5f, center = Offset(x + 30f, y - 20f))
-    drawCircle(Color.Black, radius = 2.2f, center = Offset(x + 31f, y - 20f))
-}
-
-private fun DrawScope.drawMeleeHero(x: Float, y: Float, primary: Color, dark: Color) {
-    val bodyH = 44f
-    val bodyW = 24f
-    drawOval(Color(0x44000000), topLeft = Offset(x - 18f, y + 2f), size = Size(36f, 10f))
-    drawRoundRect(dark, topLeft = Offset(x - bodyW / 2, y - bodyH), size = Size(bodyW, bodyH * 0.6f), cornerRadius = CornerRadius(4f))
-    drawRoundRect(primary, topLeft = Offset(x - bodyW / 2, y - bodyH * 0.5f), size = Size(bodyW, bodyH * 0.5f), cornerRadius = CornerRadius(4f))
-    drawCircle(Color(0xFFFFCC80), radius = 10f, center = Offset(x, y - bodyH - 6f))
-    drawCircle(Color.White, radius = 2.5f, center = Offset(x - 3f, y - bodyH - 7f))
-    drawCircle(Color.Black, radius = 1.2f, center = Offset(x - 3f, y - bodyH - 7f))
-    drawCircle(Color.White, radius = 2.5f, center = Offset(x + 3f, y - bodyH - 7f))
-    drawCircle(Color.Black, radius = 1.2f, center = Offset(x + 3f, y - bodyH - 7f))
-    drawLine(Color(0xFF90A4AE), Offset(x + 16f, y - bodyH * 0.6f), Offset(x + 28f, y - bodyH - 4f), strokeWidth = 3f, cap = StrokeCap.Round)
-}
-
-private fun DrawScope.drawRangedHero(x: Float, y: Float, primary: Color, dark: Color) {
-    val bodyH = 42f
-    val bodyW = 20f
-    drawOval(Color(0x44000000), topLeft = Offset(x - 16f, y + 2f), size = Size(32f, 10f))
-    drawRoundRect(dark, topLeft = Offset(x - bodyW / 2, y - bodyH), size = Size(bodyW, bodyH * 0.55f), cornerRadius = CornerRadius(4f))
-    drawRoundRect(primary, topLeft = Offset(x - bodyW / 2, y - bodyH * 0.45f), size = Size(bodyW, bodyH * 0.45f), cornerRadius = CornerRadius(4f))
-    drawCircle(Color(0xFFFFCC80), radius = 9f, center = Offset(x, y - bodyH - 5f))
-    drawCircle(Color.White, radius = 2.5f, center = Offset(x - 3f, y - bodyH - 6f))
-    drawCircle(Color.Black, radius = 1.2f, center = Offset(x - 3f, y - bodyH - 6f))
-    drawLine(primary, Offset(x + 12f, y - bodyH * 0.3f), Offset(x + 12f, y - bodyH - 14f), strokeWidth = 2.5f)
-    drawLine(primary, Offset(x + 12f, y - bodyH - 14f), Offset(x + 20f, y - bodyH - 8f), strokeWidth = 2.5f)
-    drawLine(primary, Offset(x + 12f, y - bodyH - 14f), Offset(x + 4f, y - bodyH - 8f), strokeWidth = 2.5f)
-}
-
-private fun DrawScope.drawGiant(x: Float, y: Float) {
-    val bodyH = 56f
-    val bodyW = 36f
-    drawOval(Color(0x44000000), topLeft = Offset(x - 24f, y + 2f), size = Size(48f, 12f))
-    drawRoundRect(Color(0xFF78909C), topLeft = Offset(x - bodyW / 2, y - bodyH), size = Size(bodyW, bodyH), cornerRadius = CornerRadius(6f))
-    drawRoundRect(Color(0xFF546E7A), topLeft = Offset(x - bodyW / 2 - 4f, y - bodyH + 4f), size = Size(bodyW + 8f, 16f), cornerRadius = CornerRadius(4f))
-    drawCircle(Color(0xFF90A4AE), radius = 14f, center = Offset(x, y - bodyH - 8f))
-    drawCircle(Color(0xFF4FC3F7), radius = 3f, center = Offset(x - 5f, y - bodyH - 9f))
-    drawCircle(Color(0xFF4FC3F7), radius = 3f, center = Offset(x + 5f, y - bodyH - 9f))
-    drawLine(Color(0xFF78909C), Offset(x + bodyW / 2, y - bodyH * 0.4f), Offset(x + bodyW / 2 + 20f, y - bodyH * 0.2f), strokeWidth = 8f, cap = StrokeCap.Round)
-    drawLine(Color(0xFF78909C), Offset(x - bodyW / 2, y - bodyH * 0.4f), Offset(x - bodyW / 2 - 20f, y - bodyH * 0.2f), strokeWidth = 8f, cap = StrokeCap.Round)
-}
-
-private fun DrawScope.drawTroopHpBar(cx: Float, y: Float, ratio: Float, fly: Boolean) {
-    val top = if (fly) y - 90f else y - 48f
-    val w = 44f
-    val h = 6f
-    drawRect(Color(0x66000000), topLeft = Offset(cx - w / 2, top), size = Size(w, h))
-    drawRect(
-        if (ratio > 0.5f) Color(0xFF4CAF50) else if (ratio > 0.25f) Color(0xFFFFC107) else Color(0xFFEF5350),
-        topLeft = Offset(cx - w / 2, top),
-        size = Size(w * ratio.coerceIn(0f, 1f), h)
-    )
-}
-
-private var cachedTitlePaint: Paint? = null
-
-private val VictoryBlue = Color(0xFF1565C0)
-private val VictoryBlueDark = Color(0xFF0D47A1)
-private val VictoryGold = Color(0xFFF5A623)
-private val VictoryGoldDark = Color(0xFFC4841D)
-private val VictoryGoldBorder = Color(0xFFFFD86B)
-private val ShardGray = Color(0xFF9E9E9E)
-private val ShardGrayDark = Color(0xFF616161)
-
-private fun spawnConfetti(confetti: SnapshotStateList<Confetti>) {
-    val colors = listOf(
-        Color(0xFFF5A623), Color(0xFF42A5F5), Color(0xFF66BB6A),
-        Color(0xFFEF5350), Color(0xFFAB47BC), Color(0xFFFFF176)
-    )
-    repeat(60) {
-        confetti.add(
-            Confetti(
-                x = Random.nextFloat() * 800f,
-                y = -20f - Random.nextFloat() * 200f,
-                vx = Random.nextFloat() * 60f - 30f,
-                vy = 90f + Random.nextFloat() * 90f,
-                color = colors[Random.nextInt(colors.size)],
-                size = 6f + Random.nextFloat() * 8f,
-                spin = Random.nextFloat() * 8f - 4f
-            )
-        )
-    }
-}
-
-private fun DrawScope.drawResultShield(cx: Float, cy: Float, s: Float, victory: Boolean) {
-    val shield = Path().apply {
-        moveTo(cx, cy - s)
-        cubicTo(cx + s * 0.95f, cy - s * 0.8f, cx + s * 1.08f, cy - s * 0.1f, cx + s * 0.75f, cy + s * 0.45f)
-        lineTo(cx, cy + s * 1.05f)
-        lineTo(cx - s * 0.75f, cy + s * 0.45f)
-        cubicTo(cx - s * 1.08f, cy - s * 0.1f, cx - s * 0.95f, cy - s * 0.8f, cx, cy - s)
-        close()
-    }
-    val border = Path().apply {
-        moveTo(cx, cy - s * 1.12f)
-        cubicTo(cx + s * 1.05f, cy - s * 0.9f, cx + s * 1.2f, cy - s * 0.1f, cx + s * 0.85f, cy + s * 0.5f)
-        lineTo(cx, cy + s * 1.16f)
-        lineTo(cx - s * 0.85f, cy + s * 0.5f)
-        cubicTo(cx - s * 1.2f, cy - s * 0.1f, cx - s * 1.05f, cy - s * 0.9f, cx, cy - s * 1.12f)
-        close()
-    }
-
-    if (victory) {
-        drawPath(border, Brush.linearGradient(listOf(VictoryGold, VictoryGoldDark, VictoryGoldDark)))
-        drawPath(shield, Brush.linearGradient(listOf(VictoryGold, VictoryGoldDark)))
-        val crown = Path().apply {
-            moveTo(cx - s * 0.45f, cy - s * 1.15f)
-            lineTo(cx - s * 0.28f, cy - s * 1.5f)
-            lineTo(cx - s * 0.12f, cy - s * 1.2f)
-            lineTo(cx, cy - s * 1.55f)
-            lineTo(cx + s * 0.12f, cy - s * 1.2f)
-            lineTo(cx + s * 0.28f, cy - s * 1.5f)
-            lineTo(cx + s * 0.45f, cy - s * 1.15f)
-            close()
-        }
-        drawPath(crown, VictoryGold)
-        drawCircle(VictoryGoldBorder, radius = s * 0.08f, center = Offset(cx - s * 0.25f, cy - s * 1.22f))
-        drawCircle(VictoryGoldBorder, radius = s * 0.08f, center = Offset(cx, cy - s * 1.26f))
-        drawCircle(VictoryGoldBorder, radius = s * 0.08f, center = Offset(cx + s * 0.25f, cy - s * 1.22f))
-        drawLine(VictoryGoldBorder, Offset(cx - s * 0.3f, cy - s * 0.2f), Offset(cx + s * 0.3f, cy + s * 0.2f), strokeWidth = s * 0.09f, cap = StrokeCap.Round)
-        drawLine(VictoryGoldBorder, Offset(cx + s * 0.3f, cy - s * 0.2f), Offset(cx - s * 0.3f, cy + s * 0.2f), strokeWidth = s * 0.09f, cap = StrokeCap.Round)
-    } else {
-        drawPath(border, Brush.linearGradient(listOf(ShardGray, ShardGrayDark, Color(0xFF424242))))
-        drawPath(shield, Brush.linearGradient(listOf(ShardGray, Color(0xFF757575))))
-        val crack = Path().apply {
-            moveTo(cx - s * 0.15f, cy - s)
-            lineTo(cx + s * 0.1f, cy - s * 0.45f)
-            lineTo(cx - s * 0.05f, cy - s * 0.15f)
-            lineTo(cx + s * 0.18f, cy + s * 0.35f)
-            lineTo(cx - s * 0.05f, cy + s * 0.75f)
-        }
-        drawPath(crack, Color(0xFF212121), style = Stroke(width = s * 0.09f, cap = StrokeCap.Round))
-        val piece = Path().apply {
-            moveTo(cx + s * 0.5f, cy - s * 0.5f)
-            lineTo(cx + s * 0.85f, cy - s * 0.35f)
-            lineTo(cx + s * 0.7f, cy - s * 0.05f)
-            close()
-        }
-        drawPath(piece, ShardGray)
-        drawPath(piece, Color(0xFF424242), style = Stroke(width = 3f))
-    }
-}
-
-private fun DrawScope.drawChest(cx: Float, baseY: Float, s: Float) {
-    drawOval(Color(0x55000000), topLeft = Offset(cx - s * 0.7f, baseY + s * 0.5f), size = Size(s * 1.4f, s * 0.25f))
-    drawRoundRect(Color(0xFF6D4C2F), topLeft = Offset(cx - s * 0.55f, baseY - s * 0.35f), size = Size(s * 1.1f, s * 0.85f), cornerRadius = CornerRadius(s * 0.05f))
-    drawRoundRect(Color(0xFF8B6914), topLeft = Offset(cx - s * 0.6f, baseY - s * 0.6f), size = Size(s * 1.2f, s * 0.3f), cornerRadius = CornerRadius(s * 0.05f))
-    drawCircle(Color(0xFFFFD86B), radius = s * 0.09f, center = Offset(cx, baseY - s * 0.28f))
-    drawCircle(Color(0xFF3E2723), radius = s * 0.04f, center = Offset(cx, baseY - s * 0.28f))
-    drawLine(Color(0xFF8B6914), Offset(cx - s * 0.55f, baseY - s * 0.05f), Offset(cx + s * 0.55f, baseY - s * 0.05f), strokeWidth = s * 0.06f)
-}
-
-private fun titleTextPaint(): Paint {
-    return cachedTitlePaint ?: Paint().apply {
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.DEFAULT_BOLD
-        isAntiAlias = true
-    }.also { cachedTitlePaint = it }
-}
-
-private fun loadOptionalBitmap(context: Context, name: String): ImageBitmap? {
-    val id = context.resources.getIdentifier(name, "drawable", context.packageName)
-    if (id == 0) return null
+private fun loadBattleBitmap(context: Context, name: String): ImageBitmap? {
+    val id=context.resources.getIdentifier(name,"drawable",context.packageName)
+    if(id==0) return null
     return runCatching {
-        if (android.os.Build.VERSION.SDK_INT >= 28) {
-            android.graphics.ImageDecoder.decodeBitmap(
-                android.graphics.ImageDecoder.createSource(context.resources, id)
-            ).asImageBitmap()
-        } else {
-            android.graphics.BitmapFactory.decodeResource(context.resources, id).asImageBitmap()
-        }
+        if(android.os.Build.VERSION.SDK_INT>=28) android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(context.resources,id)).asImageBitmap()
+        else android.graphics.BitmapFactory.decodeResource(context.resources,id).asImageBitmap()
     }.getOrNull()
 }
