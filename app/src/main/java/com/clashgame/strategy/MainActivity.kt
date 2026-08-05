@@ -99,6 +99,8 @@ import com.clashgame.strategy.model.Rarity
 import kotlin.random.Random
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.lerp
+import kotlin.math.sin
+import kotlin.math.cos
 
 // =================== COLOR PALETTE ===================
 private val BgDeep = Color(0xFF0D0D1A)
@@ -476,15 +478,15 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
 
         // Water shimmer particles
         repeat(8) { i ->
-            val shimmerX = (w * (i * 0.12f) + sin(animTime * 1.5f + i * 2f) * 20f)
-            val shimmerY = centerY + 95f + cos(animTime * 1.2f + i) * 5f
+            val shimmerX = (w * (i * 0.12f) + sin(animTime * 1.5f + i * 2f).toFloat() * 20f)
+            val shimmerY = centerY + 95f + cos(animTime * 1.2f + i).toFloat() * 5f
             drawCircle(Color(0xFF81D4FA).copy(alpha = 0.15f + 0.1f * sin(animTime * 3f + i).toFloat()), radius = 2f, center = Offset(shimmerX, shimmerY))
         }
 
         // Fireflies
         repeat(6) { i ->
-            val fx = centerX + sin(animTime * 0.5f + i * 1.7f) * 200f
-            val fy = centerY + cos(animTime * 0.7f + i * 2.1f) * 60f + 20f
+            val fx = centerX + sin(animTime * 0.5f + i * 1.7f).toFloat() * 200f
+            val fy = centerY + cos(animTime * 0.7f + i * 2.1f).toFloat() * 60f + 20f
             val fAlpha = 0.2f + 0.3f * sin(animTime * 3f + i * 1.5f).toFloat()
             drawCircle(Color(0xFFFFEB3B).copy(alpha = fAlpha * 0.3f), radius = 8f, center = Offset(fx, fy))
             drawCircle(Color(0xFFFFEB3B).copy(alpha = fAlpha), radius = 2.5f, center = Offset(fx, fy))
@@ -492,8 +494,8 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
 
         // Smoke from HQ chimney
         repeat(5) { i ->
-            val smokeY = centerY - 100f - i * 12f - sin(animTime * 0.5f) * 5f
-            val smokeX = centerX - 20f + sin(animTime * 0.3f + i * 0.8f) * (4f + i * 2f)
+            val smokeY = centerY - 100f - i * 12f - sin(animTime * 0.5f).toFloat() * 5f
+            val smokeX = centerX - 20f + sin(animTime * 0.3f + i * 0.8f).toFloat() * (4f + i * 2f)
             val smokeAlpha = (0.15f - i * 0.025f).coerceAtLeast(0f)
             val smokeR = 4f + i * 3f
             drawCircle(Color(0xFF78909C).copy(alpha = smokeAlpha), radius = smokeR, center = Offset(smokeX, smokeY))
@@ -540,7 +542,7 @@ private fun DrawScope.drawVillageBuilding(cx: Float, cy: Float, bw: Float, bh: F
 }
 
 private fun DrawScope.drawVillageTree(x: Float, y: Float, animTime: Float) {
-    val sway = sin(animTime * 0.8f + x * 0.01f) * 2f
+    val sway = (sin(animTime * 0.8f + x * 0.01f) * 2f).toFloat()
     drawRect(Color(0xFF5D4037), topLeft = Offset(x - 3f, y), size = Size(6f, 20f))
     drawCircle(Color(0xFF1B5E20), radius = 14f, center = Offset(x + sway, y - 8f))
     drawCircle(Color(0xFF2E7D32), radius = 10f, center = Offset(x - 4f + sway, y - 12f))

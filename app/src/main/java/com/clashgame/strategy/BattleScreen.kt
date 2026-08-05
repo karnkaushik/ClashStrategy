@@ -346,7 +346,7 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
                 deployed.forEach { u ->
                     if (u.dead) { if (u.deathAnim > 0f) { drawCircle(Color.White.copy(alpha=u.deathAnim.coerceIn(0f,1f)*0.7f),radius=(1f-u.deathAnim)*40f+5f,center=Offset(u.x,u.y)) }; return@forEach }
                     val spawnScale = if (u.spawnAnim > 0f) 1f+u.spawnAnim*0.5f else 1f
-                    val idle = sin(elapsed*2f+u.x*0.01f)*2f; val drawY = u.y+idle
+                    val idle = sin(elapsed*2f+u.x*0.01f).toFloat()*2f; val drawY = u.y+idle
                     drawOval(Color.Black.copy(alpha=0.25f),topLeft=Offset(u.x-16f,drawY+2f),size=Size(32f,8f))
                     val alpha = if (u.stealthed) 0.3f else 1f
                     if (u.spawnAnim > 0f) drawCircle(u.card.color.copy(alpha=u.spawnAnim*0.4f),radius=30f*(1f-u.spawnAnim*0.3f),center=Offset(u.x,drawY))
@@ -423,7 +423,7 @@ private fun DrawScope.drawBattleBuilding(b: EnemyBuilding, elapsed: Float) {
     val flashC = if(b.hitFlash>0f) Color.White.copy(alpha=b.hitFlash*0.6f) else null
     drawOval(Color(0x40000000),topLeft=Offset(cx-b.w*0.4f,cy+b.h*0.1f),size=Size(b.w*0.8f,b.h*0.15f))
     when(b.name) {
-        "HQ" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(4f)); val roof=Path().apply { moveTo(cx-b.w*0.6f,top); lineTo(cx,top-b.h*0.25f); lineTo(cx+b.w*0.6f,top); close() }; drawPath(roof,b.roofColor); drawPath(roof,Color.White.copy(alpha=0.1f),style=Stroke(2f)); val fw=sin(elapsed*4f)*4f; drawLine(Color(0xFF5D4037),Offset(cx,top-b.h*0.25f),Offset(cx,top-b.h*0.55f),strokeWidth=3f); val flag=Path().apply { moveTo(cx,top-b.h*0.55f); lineTo(cx+18f,top-b.h*0.5f+fw); lineTo(cx,top-b.h*0.42f); close() }; drawPath(flag,Color(0xFFE53935)); drawCircle(Color(0xFFFFD54F).copy(alpha=0.3f+0.2f*sin(elapsed*3f).toFloat()),radius=8f,center=Offset(cx,top+b.h*0.6f)) }
+        "HQ" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(4f)); val roof=Path().apply { moveTo(cx-b.w*0.6f,top); lineTo(cx,top-b.h*0.25f); lineTo(cx+b.w*0.6f,top); close() }; drawPath(roof,b.roofColor); drawPath(roof,Color.White.copy(alpha=0.1f),style=Stroke(2f)); val fw=sin(elapsed*4f).toFloat()*4f; drawLine(Color(0xFF5D4037),Offset(cx,top-b.h*0.25f),Offset(cx,top-b.h*0.55f),strokeWidth=3f); val flag=Path().apply { moveTo(cx,top-b.h*0.55f); lineTo(cx+18f,top-b.h*0.5f+fw); lineTo(cx,top-b.h*0.42f); close() }; drawPath(flag,Color(0xFFE53935)); drawCircle(Color(0xFFFFD54F).copy(alpha=0.3f+0.2f*sin(elapsed*3f).toFloat()),radius=8f,center=Offset(cx,top+b.h*0.6f)) }
         "Barracks" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(3f)); val roof=Path().apply { moveTo(cx-b.w*0.55f,top); lineTo(cx,top-b.h*0.2f); lineTo(cx+b.w*0.55f,top); close() }; drawPath(roof,b.roofColor) }
         "Watchtower" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,Color(0xFF2C3E50))),topLeft=Offset(cx-b.w*0.3f,top),size=Size(b.w*0.6f,b.h),cornerRadius=CornerRadius(2f)); drawRoundRect(b.roofColor,topLeft=Offset(cx-b.w/2,top),size=Size(b.w,12f),cornerRadius=CornerRadius(3f)); val tf=0.6f+0.3f*sin(elapsed*8f).toFloat(); drawCircle(Color(0xFFFF8F00).copy(alpha=tf),radius=4f,center=Offset(cx-b.w*0.35f,top+2f)); drawCircle(Color(0xFFFFD54F).copy(alpha=tf*0.5f),radius=8f,center=Offset(cx-b.w*0.35f,top+2f)); drawCircle(Color(0xFFFF8F00).copy(alpha=tf),radius=4f,center=Offset(cx+b.w*0.35f,top+2f)); drawCircle(Color(0xFFFFD54F).copy(alpha=tf*0.5f),radius=8f,center=Offset(cx+b.w*0.35f,top+2f)) }
         "Walls" -> { drawRoundRect(Brush.verticalGradient(listOf(b.color,b.roofColor)),topLeft=Offset(cx-b.w/2,top),size=Size(b.w,b.h),cornerRadius=CornerRadius(2f)); val mw=b.w/6f; repeat(6) { i -> drawRect(b.color,topLeft=Offset(cx-b.w/2+i*mw,top-8f),size=Size(mw*0.6f,8f)) } }
@@ -455,9 +455,9 @@ private fun DrawScope.drawResultOverlay(w: Float, h: Float, victory: Boolean, al
     val bannerY=cy+s*1.7f; val bannerW=w*0.72f
     drawRect(Brush.horizontalGradient(listOf(Color(0xFF0D47A1).copy(alpha=alpha),Color(0xFF1565C0).copy(alpha=alpha),Color(0xFF0D47A1).copy(alpha=alpha))),topLeft=Offset(cx-bannerW/2,bannerY),size=Size(bannerW,h*0.07f))
     paint.textSize=h*0.055f; paint.color=android.graphics.Color.argb((alpha*255).toInt(),255,255,255)
-    drawContext.canvas.nativeCanvas.drawText(if(victory)"VICTORY!"else"DEFEAT",cx,bannerY+h*0.048f,paint)
-    paint.textSize=h*0.045f; paint.color=android.graphics.Color.argb((alpha*255).toInt(),if(victory)255 else 255,if(victory)213 else 120,if(victory)79 else 120)
-    drawContext.canvas.nativeCanvas.drawText(if(victory)"+30 TROPHIES +150 GOLD"else"-30 TROPHIES +60 GOLD",cx,bannerY+h*0.10f,paint)
+    drawContext.canvas.nativeCanvas.drawText(if (victory) "VICTORY!" else "DEFEAT", cx, bannerY + h * 0.048f, paint)
+    paint.textSize = h * 0.045f; paint.color = android.graphics.Color.argb((alpha * 255).toInt(), if (victory) 255 else 255, if (victory) 213 else 120, if (victory) 79 else 120)
+    drawContext.canvas.nativeCanvas.drawText(if (victory) "+30 TROPHIES +150 GOLD" else "-30 TROPHIES +60 GOLD", cx, bannerY + h * 0.10f, paint)
     paint.textSize=h*0.03f; paint.color=android.graphics.Color.argb((alpha*200).toInt(),180,190,200)
     drawContext.canvas.nativeCanvas.drawText("TAP TO CONTINUE",cx,h*0.90f,paint)
 }
