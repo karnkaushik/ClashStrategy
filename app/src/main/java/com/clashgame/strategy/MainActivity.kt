@@ -415,7 +415,6 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
             radius = 160f,
             center = Offset(centerX - 20f, centerY),
             style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f)))
-            )
         )
     }
 }
