@@ -177,6 +177,18 @@ private sealed class Screen {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            runOnUiThread {
+                setContent {
+                    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0D0D1A))) {
+                        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("CRASH: ${e.javaClass.simpleName}", color = androidx.compose.ui.graphics.Color.Red, fontSize = 14.sp)
+                            Text(e.message ?: "unknown", color = androidx.compose.ui.graphics.Color(0xFF9E9E9E), fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+        }
         setContent { GameApp() }
     }
 }
@@ -422,7 +434,7 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         repeat(35) { i ->
             val sx = w * ((i * 29 % 100) / 100f)
             val sy = h * (0.02f + 0.25f * (i * 11 % 8) / 7f)
-            val twinkle = 0.2f + 0.4f * sin(animTime * 0.8f + i * 1.3f).toFloat()
+            val twinkle = (0.2f + 0.4f * sin(animTime * 0.8f + i * 1.3f).toFloat()).coerceIn(0f, 1f)
             drawCircle(Color.White.copy(alpha = twinkle), radius = 1f + (i % 3) * 0.6f, center = Offset(sx, sy))
         }
 
@@ -487,7 +499,7 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         repeat(6) { i ->
             val fx = centerX + sin(animTime * 0.5f + i * 1.7f).toFloat() * 200f
             val fy = centerY + cos(animTime * 0.7f + i * 2.1f).toFloat() * 60f + 20f
-            val fAlpha = 0.2f + 0.3f * sin(animTime * 3f + i * 1.5f).toFloat()
+            val fAlpha = (0.2f + 0.3f * sin(animTime * 3f + i * 1.5f).toFloat()).coerceIn(0f, 1f)
             drawCircle(Color(0xFFFFEB3B).copy(alpha = fAlpha * 0.3f), radius = 8f, center = Offset(fx, fy))
             drawCircle(Color(0xFFFFEB3B).copy(alpha = fAlpha), radius = 2.5f, center = Offset(fx, fy))
         }
