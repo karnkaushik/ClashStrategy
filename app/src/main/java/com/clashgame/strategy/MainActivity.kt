@@ -20,7 +20,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Image
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -86,6 +87,8 @@ import com.clashgame.strategy.model.DemonKing
 import com.clashgame.strategy.model.Guild
 import com.clashgame.strategy.model.GuildGate
 import com.clashgame.strategy.model.Player
+import com.clashgame.strategy.model.Element
+import com.clashgame.strategy.model.Rarity
 import kotlin.random.Random
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.lerp
@@ -135,6 +138,7 @@ private val ElementWater = Color(0xFF03A9F4)
 private val ElementArcane = Color(0xFF9C27B0)
 private val ElementThunder = Color(0xFFFFEB3B)
 private val ElementIce = Color(0xFF00BCD4)
+private val ElementShadow = Color(0xFF7B1FA2)
 
 // =================== DATA MODELS ===================
 private enum class Rarity { COMMON, RARE, EPIC, LEGENDARY, MYTHIC }
