@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import com.clashgame.strategy.model.GameCharacter
 import kotlin.math.PI
 import kotlin.math.sin
@@ -388,7 +390,11 @@ private fun DrawScope.drawTower(
 
     // Body
     if (bmp != null) {
-        drawImage(bmp, topLeft = Offset(ox - 60f, groundY - 120f), size = Size(120f, 120f))
+        drawImage(
+            bmp,
+            dstOffset = IntOffset((ox - 60f).toInt(), (groundY - 120f).toInt()),
+            dstSize = IntSize(120, 120)
+        )
     } else {
         drawRoundRect(
             Color(0xFF546E7A),
@@ -431,7 +437,11 @@ private fun DrawScope.drawTower(
 
 private fun DrawScope.drawGoblin(x: Float, y: Float, bmp: ImageBitmap?) {
     if (bmp != null) {
-        drawImage(bmp, topLeft = Offset(x - 24f, y - 52f), size = Size(48f, 52f))
+        drawImage(
+            bmp,
+            dstOffset = IntOffset((x - 24f).toInt(), (y - 52f).toInt()),
+            dstSize = IntSize(48, 52)
+        )
         return
     }
     val r = 20f
@@ -453,7 +463,11 @@ private fun DrawScope.drawGoblin(x: Float, y: Float, bmp: ImageBitmap?) {
 
 private fun DrawScope.drawDragon(x: Float, y: Float, bmp: ImageBitmap?) {
     if (bmp != null) {
-        drawImage(bmp, topLeft = Offset(x - 32f, y - 44f), size = Size(64f, 48f))
+        drawImage(
+            bmp,
+            dstOffset = IntOffset((x - 32f).toInt(), (y - 44f).toInt()),
+            dstSize = IntSize(64, 48)
+        )
         return
     }
     drawArc(
