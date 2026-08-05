@@ -58,7 +58,13 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.graphicsLayer
 import com.clashgame.strategy.model.GameCharacter
 import kotlin.math.PI
 import kotlin.math.sin
@@ -134,6 +140,8 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
     var victory by remember { mutableStateOf(false) }
     var resultAlpha by remember { mutableFloatStateOf(0f) }
     var groundYState by remember { mutableFloatStateOf(0f) }
+    var battleW by remember { mutableFloatStateOf(0f) }
+    var battleH by remember { mutableFloatStateOf(0f) }
     var screenShakeX by remember { mutableFloatStateOf(0f) }
     var screenShakeY by remember { mutableFloatStateOf(0f) }
     val deck = remember { mutableStateListOf<CardDef>().also { it.addAll(ALL_CARDS.shuffled()) } }
@@ -156,15 +164,16 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
             elapsed += dt
             screenShakeX *= 0.85f; screenShakeY *= 0.85f
             elixir = (elixir + dt / 2.8f).coerceAtMost(10f)
-            if (!buildingsInit && groundYState > 0f) {
+            if (!buildingsInit && groundYState > 0f && battleW > 0f) {
+                val w = battleW; val gy = groundYState
                 buildings.addAll(listOf(
-                    EnemyBuilding(0.74f,0.22f,100f,130f,"HQ",500f,500f,Color(0xFF37474F),Color(0xFF263238),20),
-                    EnemyBuilding(0.60f,0.38f,55f,70f,"Barracks",250f,250f,Color(0xFF5D4037),Color(0xFF4E342E),12),
-                    EnemyBuilding(0.84f,0.36f,45f,65f,"Watchtower",200f,200f,Color(0xFF455A64),Color(0xFF37474F),18),
-                    EnemyBuilding(0.68f,0.50f,65f,40f,"Walls",180f,180f,Color(0xFF6D4C41),Color(0xFF5D4037),0),
-                    EnemyBuilding(0.88f,0.48f,40f,55f,"Cannon",150f,150f,Color(0xFF455A64),Color(0xFF37474F),22),
-                    EnemyBuilding(0.78f,0.52f,42f,42f,"Gold Storage",200f,200f,Color(0xFFFF8F00),Color(0xFFEF6C00),0,isResource=true),
-                    EnemyBuilding(0.55f,0.50f,42f,42f,"Elixir Storage",200f,200f,Color(0xFF9C27B0),Color(0xFF7B1FA2),0,isResource=true)
+                    EnemyBuilding(w*0.78f, gy-65f, 100f, 130f, "HQ", 500f, 500f, Color(0xFF37474F), Color(0xFF263238), 20),
+                    EnemyBuilding(w*0.60f, gy-35f, 55f, 70f, "Barracks", 250f, 250f, Color(0xFF5D4037), Color(0xFF4E342E), 12),
+                    EnemyBuilding(w*0.86f, gy-32.5f, 45f, 65f, "Watchtower", 200f, 200f, Color(0xFF455A64), Color(0xFF37474F), 18),
+                    EnemyBuilding(w*0.66f, gy-20f, 65f, 40f, "Walls", 180f, 180f, Color(0xFF6D4C41), Color(0xFF5D4037), 0),
+                    EnemyBuilding(w*0.88f, gy-27.5f, 40f, 55f, "Cannon", 150f, 150f, Color(0xFF455A64), Color(0xFF37474F), 22),
+                    EnemyBuilding(w*0.74f, gy-21f, 42f, 42f, "Gold Storage", 200f, 200f, Color(0xFFFF8F00), Color(0xFFEF6C00), 0, isResource=true),
+                    EnemyBuilding(w*0.54f, gy-21f, 42f, 42f, "Elixir Storage", 200f, 200f, Color(0xFF9C27B0), Color(0xFF7B1FA2), 0, isResource=true)
                 ))
                 buildingsInit = true
             }
@@ -313,7 +322,10 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
             if (finished && resultAlpha >= 0.95f) { delay(2000); onFinish(victory); return@LaunchedEffect }
         }
     }
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().graphicsLayer {
+        val ent = (elapsed * 3f).coerceAtMost(1f)
+        alpha = ent; scaleX = 0.85f + 0.15f * ent; scaleY = 0.85f + 0.15f * ent
+    }) {
         Canvas(Modifier.fillMaxSize().pointerInput(selectedCard, buildingsInit) {
             detectTapGestures { offset ->
                 if (selectedCard >= 0 && hand[selectedCard] < deck.size) {
@@ -331,7 +343,7 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
             }
         }) {
             val w = size.width; val h = size.height; val groundY = h * 0.72f
-            groundYState = groundY
+            groundYState = groundY; battleW = w; battleH = h
             withTransform({ translate(screenShakeX, screenShakeY) }) {
                 drawBattleBg(w, h, groundY, elapsed)
                 buildings.forEach { b ->
@@ -378,8 +390,8 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
                 Spacer(Modifier.width(6.dp)); Text("${elixir.toInt()}/10",color=Color(0xFFE040FB),fontWeight=FontWeight.Bold,fontSize=11.sp)
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=8.dp)) {
-            Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.padding(horizontal=8.dp)) {
+        Box(Modifier.align(Alignment.BottomCenter).padding(8.dp).fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0x22000000),Color(0xAA000000))),RoundedCornerShape(14.dp)).padding(vertical=6.dp)) {
+            Row(horizontalArrangement=Arrangement.Center,modifier=Modifier.fillMaxWidth()) {
                 hand.forEachIndexed { idx, deckIdx -> if (deckIdx < deck.size) { val card=deck[deckIdx]; val isSel=idx==selectedCard; val canAff=elixir>=card.cost; BattleCard(card=card,selected=isSel,canAfford=canAff,spriteMap=spriteMap,onClick={ if(canAff) selectedCard=if(selectedCard==idx)-1 else idx }) } }
             }
         }
@@ -389,11 +401,13 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
 
 @Composable
 private fun BattleCard(card: CardDef, selected: Boolean, canAfford: Boolean, spriteMap: Map<String, ImageBitmap?>, onClick: () -> Unit) {
-    val ctx = LocalContext.current; val spriteResId = ctx.resources.getIdentifier(card.spriteName,"drawable",ctx.packageName)
+    val bmp = spriteMap[card.spriteName]
+    val infinite = rememberInfiniteTransition()
+    val floatY by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse))
     val borderC = if (selected) Color(0xFFFFD54F) else if (canAfford) card.color.copy(alpha=0.5f) else Color(0xFF424242)
-    Column(Modifier.scale(if(selected)1.1f else 1f).shadow(if(selected)8.dp else 3.dp,RoundedCornerShape(10.dp)).size(width=68.dp,height=90.dp).background(Brush.verticalGradient(listOf(if(canAfford)BgCard else Color(0xFF1A1A1A),BgPanel)),RoundedCornerShape(10.dp)).border(2.dp,borderC,RoundedCornerShape(10.dp)).clickable(enabled=canAfford){onClick()}.padding(4.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+    Column(Modifier.graphicsLayer { rotationX=(floatY-0.5f)*10f; rotationY=(floatY-0.5f)*14f; cameraDistance=8f*density }.scale(if(selected)1.12f else 1f).shadow(if(selected)10.dp else 3.dp,RoundedCornerShape(10.dp)).size(width=68.dp,height=90.dp).background(Brush.verticalGradient(listOf(if(canAfford)BgCard else Color(0xFF1A1A1A),BgPanel)),RoundedCornerShape(10.dp)).border(2.dp,borderC,RoundedCornerShape(10.dp)).clickable(enabled=canAfford){onClick()}.padding(4.dp),horizontalAlignment=Alignment.CenterHorizontally) {
         Box(Modifier.size(40.dp).background(card.color.copy(alpha=if(canAfford)0.15f else 0.05f),RoundedCornerShape(6.dp)),contentAlignment=Alignment.Center) {
-            if (spriteResId!=0) Image(painter=painterResource(id=spriteResId),contentDescription=card.name,modifier=Modifier.size(32.dp),contentScale=ContentScale.Fit) else Box(Modifier.size(24.dp).background(card.color.copy(alpha=0.6f),CircleShape))
+            if (bmp != null) Image(bitmap=bmp,contentDescription=card.name,modifier=Modifier.size(32.dp),contentScale=ContentScale.Fit) else Box(Modifier.size(24.dp).background(card.color.copy(alpha=0.6f),CircleShape))
         }
         Spacer(Modifier.height(2.dp))
         Text(card.name,color=if(canAfford)TextWhite else TextGray,fontWeight=FontWeight.Bold,fontSize=7.sp,maxLines=1)
@@ -469,7 +483,12 @@ private fun loadBattleBitmap(context: Context, name: String): ImageBitmap? {
     val id=context.resources.getIdentifier(name,"drawable",context.packageName)
     if(id==0) return null
     return runCatching {
-        if(android.os.Build.VERSION.SDK_INT>=28) android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(context.resources,id)).asImageBitmap()
-        else android.graphics.BitmapFactory.decodeResource(context.resources,id).asImageBitmap()
+        if(android.os.Build.VERSION.SDK_INT>=28) {
+            val src=android.graphics.ImageDecoder.createSource(context.resources,id)
+            android.graphics.ImageDecoder.decodeBitmap(src) { decoder, _, _ -> decoder.setTargetSampleSize(4) }.asImageBitmap()
+        } else {
+            val opts=android.graphics.BitmapFactory.Options().apply { inSampleSize=4 }
+            android.graphics.BitmapFactory.decodeResource(context.resources,id,opts)?.asImageBitmap()
+        }
     }.getOrNull()
 }

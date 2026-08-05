@@ -1,5 +1,6 @@
 package com.clashgame.strategy
 
+import android.content.Context
 import android.graphics.Paint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,6 +19,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,6 +64,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -73,6 +78,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -241,9 +248,9 @@ fun GameApp() {
             targetState = screen,
             transitionSpec = {
                 if (targetState is Screen.Home) {
-                    (slideInHorizontally { -it } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
+                    (slideInHorizontally { -it } + fadeIn() + scaleIn(initialScale = 0.92f)) togetherWith (slideOutHorizontally { it } + fadeOut() + scaleOut(targetScale = 0.92f))
                 } else {
-                    (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it } + fadeOut())
+                    (slideInHorizontally { it } + fadeIn() + scaleIn(initialScale = 0.92f)) togetherWith (slideOutHorizontally { -it } + fadeOut() + scaleOut(targetScale = 0.92f))
                 }
             },
             label = "screen_transition"
@@ -379,11 +386,18 @@ private fun HomeScreen(
                 Modifier.align(Alignment.Center).padding(top = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                GlossyButton(
-                    text = "⚔️  BATTLE", width = 200.dp, height = 56.dp, iconRes = R.drawable.btn_play,
-                    gradient = listOf(GoldBright, GoldDark), glowAlpha = glowPulse,
-                    onClick = onBattle
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Canvas(Modifier.size(232.dp)) {
+                        val rot = arrowBounce * 6f
+                        drawCircle(GoldBright.copy(alpha = 0.18f), radius = size.minDimension * 0.44f, style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 14f), rot)))
+                        drawCircle(MysticPurple.copy(alpha = 0.14f), radius = size.minDimension * 0.5f, style = Stroke(1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 18f), -rot * 1.5f)))
+                    }
+                    GlossyButton(
+                        text = "⚔️  BATTLE", width = 200.dp, height = 56.dp, iconRes = R.drawable.btn_play,
+                        gradient = listOf(GoldBright, GoldDark), glowAlpha = glowPulse,
+                        onClick = onBattle
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GlossyButton("🏰 Upgrade", 100.dp, 36.dp, listOf(Emerald, EmeraldDark), onClick = onUpgrade)
@@ -405,6 +419,8 @@ private fun HomeScreen(
 private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
     val infinite = rememberInfiniteTransition()
     val animTime by infinite.animateFloat(0f, 100f, infiniteRepeatable(tween(60000, easing = LinearEasing)))
+    val context = LocalContext.current
+    val villSprites = remember { listOf("goblin", "knight", "archer", "wizard", "giant", "dragon").associateWith { loadDrawableBitmap(context, it) } }
 
     Canvas(Modifier.fillMaxSize().background(BgDeep)) {
         val w = size.width; val h = size.height
@@ -472,11 +488,61 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         drawVillageBuilding(centerX - 20f, centerY - 30f, 60f, 90f, Color(0xFF1565C0), Color(0xFF0D47A1), "🏰", animTime)
         drawVillageBuilding(centerX + 140f, centerY + 50f, 35f, 50f, Color(0xFF388E3C), Color(0xFF2E7D32), "🌾", animTime)
         drawVillageBuilding(centerX - 180f, centerY + 60f, 45f, 60f, Color(0xFF616161), Color(0xFF424242), "🛡", animTime)
+        drawVillageBuilding(centerX - 280f, centerY - 70f, 30f, 45f, Color(0xFF7B1FA2), Color(0xFF4A148C), "⚡", animTime)
+        drawVillageBuilding(centerX + 210f, centerY - 80f, 40f, 60f, Color(0xFFB71C1C), Color(0xFF7F0000), "🐉", animTime)
+        drawVillageBuilding(centerX - 340f, centerY + 30f, 25f, 35f, Color(0xFF00838F), Color(0xFF004D40), "💎", animTime)
+        drawVillageBuilding(centerX + 300f, centerY + 40f, 25f, 35f, Color(0xFFF57F17), Color(0xFFE65100), "⛏", animTime)
+        drawVillageRock(centerX + 180f, centerY + 95f, 1f)
+        drawVillageRock(centerX - 350f, centerY + 95f, 0.8f)
+        drawVillageRock(centerX - 120f, centerY + 95f, 0.7f)
 
         // Trees with depth shading
         drawVillageTree(centerX - 250f, centerY + 40f, animTime)
         drawVillageTree(centerX + 220f, centerY + 70f, animTime)
         drawVillageTree(centerX - 60f, centerY + 80f, animTime)
+
+        // Wandering hero sprites patrol around the village (3D depth via elliptical orbit)
+        val walkerNames = listOf("goblin", "knight", "archer", "wizard", "giant", "dragon")
+        walkerNames.forEachIndexed { i, wName ->
+            villSprites[wName]?.let { sp ->
+                val speed = if (wName == "giant") 0.13f else 0.22f
+                val wx = centerX + cos(animTime * speed + i * 1.7f).toFloat() * (110f + i * 45f)
+                val lift = if (wName == "dragon") 70f else 0f
+                val wy = centerY + 60f + sin(animTime * 0.22f + i * 1.7f).toFloat() * 30f - lift
+                val ws = if (wName == "giant") 58f else if (wName == "dragon") 48f else 34f + (i % 2) * 10f
+                if (wName == "dragon") drawOval(Color.Black.copy(alpha = 0.25f), topLeft = Offset(wx - 14f, wy + 26f), size = Size(28f, 7f))
+                drawImage(sp, dstOffset = IntOffset((wx - ws / 2f).toInt(), (wy - ws / 2f).toInt()), dstSize = IntSize(ws.toInt(), ws.toInt()))
+            }
+        }
+
+        // Animated banner on main castle
+        val flagCX = centerX - 20f; val flagCY = centerY - 118f
+        val flagWave = sin(animTime * 5f).toFloat() * 5f
+        drawLine(Color(0xFF5D4037), Offset(flagCX, flagCY), Offset(flagCX, flagCY - 30f), strokeWidth = 3f)
+        val flagPath = Path().apply { moveTo(flagCX, flagCY - 30f); lineTo(flagCX + 26f + flagWave, flagCY - 19f); lineTo(flagCX, flagCY - 8f); close() }
+        drawPath(flagPath, Color(0xFFFFD54F))
+        drawCircle(Color(0xFFFFD54F).copy(alpha = 0.5f), radius = 3f, center = Offset(flagCX, flagCY - 30f))
+
+        // Sparkles rising from gold mine
+        repeat(3) { i ->
+            val spx = centerX + 80f + sin(animTime * 1.3f + i * 2f).toFloat() * 16f
+            val spy = centerY + 5f - ((animTime * 26f + i * 22f) % 42f)
+            val spA = (1f - ((animTime * 26f + i * 22f) % 42f) / 42f).coerceIn(0f, 1f)
+            drawCircle(Color(0xFFFFD54F).copy(alpha = spA * 0.9f), radius = 1.5f + i * 0.7f, center = Offset(spx, spy))
+        }
+
+        // Moonlight sweep across ground
+        val sweepX = (animTime * 14f) % (w + 320f) - 160f
+        drawRect(Color.White.copy(alpha = 0.02f), topLeft = Offset(sweepX, centerY + 40f), size = Size(140f, h * 0.35f))
+
+        // Title with subtitle + pulsing underline
+        uiTextPaint().apply { textSize = h * 0.05f; typeface = android.graphics.Typeface.DEFAULT_BOLD; color = android.graphics.Color.argb(255, 255, 213, 64) }.let { p ->
+            drawContext.canvas.nativeCanvas.drawText("CLASH STRATEGY", w * 0.5f, h * 0.068f, p)
+        }
+        uiTextPaint().apply { textSize = h * 0.016f; color = android.graphics.Color.argb(190, 158, 158, 158) }.let { p ->
+            drawContext.canvas.nativeCanvas.drawText("KINGDOM OF CHIEF KYLE", w * 0.5f, h * 0.095f, p)
+        }
+        drawRect(Color(0xFFFFD54F).copy(alpha = 0.35f + 0.25f * sin(animTime * 1.5f).toFloat()), topLeft = Offset(w * 0.5f - w * 0.16f, h * 0.078f), size = Size(w * 0.32f, 2f))
 
         // River with animated shimmer
         val riverPath = Path().apply {
@@ -524,6 +590,23 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         // Build radius circle with animated dash
         drawCircle(RoyalBlue.copy(alpha = 0.1f), radius = 160f, center = Offset(centerX - 20f, centerY), style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), animTime * 20f)))
     }
+}
+
+private fun uiTextPaint(): Paint { return Paint().apply { textAlign = Paint.Align.CENTER; isAntiAlias = true } }
+
+private fun DrawScope.drawVillageRock(x: Float, y: Float, s: Float) {
+    drawOval(Color(0xFF455A64), topLeft = Offset(x - 10f * s, y - 6f * s), size = Size(20f * s, 12f * s))
+    drawOval(Color(0xFF607D8B), topLeft = Offset(x - 7f * s, y - 10f * s), size = Size(14f * s, 9f * s))
+    drawOval(Color(0xFF78909C).copy(alpha = 0.6f), topLeft = Offset(x - 4f * s, y - 12f * s), size = Size(8f * s, 5f * s))
+}
+
+private fun loadDrawableBitmap(context: Context, name: String): ImageBitmap? {
+    val id = context.resources.getIdentifier(name, "drawable", context.packageName)
+    if (id == 0) return null
+    return runCatching {
+        val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
+        android.graphics.BitmapFactory.decodeResource(context.resources, id, opts)?.asImageBitmap()
+    }.getOrNull()
 }
 
 private fun DrawScope.drawVillageBuilding(cx: Float, cy: Float, bw: Float, bh: Float, color: Color, darkColor: Color, icon: String, animTime: Float) {
@@ -687,9 +770,12 @@ private fun HeroCard(hero: HeroData, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.5f, stiffness = 300f))
+    val floatInf = rememberInfiniteTransition()
+    val tiltA by floatInf.animateFloat(-1.5f, 1.5f, infiniteRepeatable(tween(2000, easing = LinearEasing), RepeatMode.Reverse))
 
     Column(
         Modifier.fillMaxWidth().scale(scale)
+            .graphicsLayer { rotationY = tiltA; cameraDistance = 12f * density }
             .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = rarityColor.copy(alpha = 0.3f))
             .shadow(3.dp, RoundedCornerShape(12.dp), ambientColor = rarityColor.copy(alpha = 0.15f))
             .background(Brush.verticalGradient(listOf(BgCard.copy(alpha = 0.95f), BgPanel.copy(alpha = 0.9f))), RoundedCornerShape(12.dp))
@@ -1260,6 +1346,7 @@ private fun GlossyButton(
 
     Box(
         Modifier.width(width).height(height).scale(scale)
+            .graphicsLayer { rotationX = if (pressed) 6f else 0f; rotationY = if (pressed) -3f else 0f }
             .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Color.Black.copy(alpha = 0.4f), spotColor = Color.Black.copy(alpha = 0.3f))
             .shadow(3.dp, RoundedCornerShape(12.dp), ambientColor = gradient.first().copy(alpha = 0.2f))
             .background(Brush.verticalGradient(listOf(gradient.first(), gradient.last())), RoundedCornerShape(12.dp))
