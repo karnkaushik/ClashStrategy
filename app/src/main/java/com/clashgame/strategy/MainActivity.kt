@@ -113,6 +113,15 @@ private val BgPanel = Color(0xFF1A1A2E)
 private val BgPanelLight = Color(0xFF252540)
 private val BgCard = Color(0xFF1E1E35)
 
+// Clash-style fantasy palette
+private val WoodDark = Color(0xFF5D4A2A)
+private val WoodPlank = Color(0xFF6D5533)
+private val WoodLight = Color(0xFF8A6D3B)
+private val StoneLight = Color(0xFFB8A878)
+private val StoneDark = Color(0xFF8A7B5C)
+private val GrassBright = Color(0xFF4CAF50)
+private val GrassDark = Color(0xFF2E7D32)
+
 private val GoldBright = Color(0xFFFFD700)
 private val GoldMedium = Color(0xFFFFA500)
 private val GoldDark = Color(0xFFCC8400)
@@ -184,18 +193,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             try {
-                runOnUiThread {
-                    try {
-                        setContent {
-                            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0D0D1A))) {
-                                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("CRASH: ${e.javaClass.simpleName}", color = androidx.compose.ui.graphics.Color.Red, fontSize = 14.sp)
-                                    Text(e.message ?: "unknown", color = androidx.compose.ui.graphics.Color(0xFF9E9E9E), fontSize = 10.sp)
-                                }
-                            }
-                        }
-                    } catch (_: Throwable) {}
-                }
+                val msg = "CRASH: ${e.javaClass.simpleName} | ${e.message}"
+                android.util.Log.e("ClashStrategy", msg, e)
+                runOnUiThread { android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show() }
             } catch (_: Throwable) {}
         }
         setContent { GameApp() }
@@ -476,15 +476,25 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         }
 
         // Buildings with 3D depth + animated effects
-        drawVillageBuilding(centerX - 120f, centerY + 30f, 50f, 70f, Color(0xFF795548), Color(0xFF5D4037), "🏠", animTime)
+        drawVillageBuilding(centerX - 120f, centerY + 30f, 50f, 70f, WoodLight, WoodDark, "🏠", animTime)
         drawVillageBuilding(centerX + 80f, centerY + 10f, 40f, 55f, Color(0xFFFF8F00), Color(0xFFEF6C00), "⛏", animTime)
-        drawVillageBuilding(centerX - 20f, centerY - 30f, 60f, 90f, Color(0xFF1565C0), Color(0xFF0D47A1), "🏰", animTime)
-        drawVillageBuilding(centerX + 140f, centerY + 50f, 35f, 50f, Color(0xFF388E3C), Color(0xFF2E7D32), "🌾", animTime)
-        drawVillageBuilding(centerX - 180f, centerY + 60f, 45f, 60f, Color(0xFF616161), Color(0xFF424242), "🛡", animTime)
-        drawVillageBuilding(centerX - 280f, centerY - 70f, 30f, 45f, Color(0xFF7B1FA2), Color(0xFF4A148C), "⚡", animTime)
+        drawVillageBuilding(centerX - 20f, centerY - 30f, 64f, 92f, StoneLight, StoneDark, "🏰", animTime)
+        drawVillageBuilding(centerX + 140f, centerY + 50f, 35f, 50f, GrassBright, GrassDark, "🌾", animTime)
+        drawVillageBuilding(centerX - 180f, centerY + 60f, 45f, 60f, WoodLight, WoodDark, "🛡", animTime)
+        drawVillageBuilding(centerX - 280f, centerY - 70f, 30f, 45f, Color(0xFF9C27B0), Color(0xFF6A1B9A), "⚡", animTime)
         drawVillageBuilding(centerX + 210f, centerY - 80f, 40f, 60f, Color(0xFFB71C1C), Color(0xFF7F0000), "🐉", animTime)
         drawVillageBuilding(centerX - 340f, centerY + 30f, 25f, 35f, Color(0xFF00838F), Color(0xFF004D40), "💎", animTime)
         drawVillageBuilding(centerX + 300f, centerY + 40f, 25f, 35f, Color(0xFFF57F17), Color(0xFFE65100), "⛏", animTime)
+
+        // Clash-style stone perimeter wall around the base
+        repeat(7) { i -> drawVillageWall(centerX - 220f + i * 48f, centerY + 100f, animTime) }
+
+        // Gold heap beside the mine + army tents + elixir crystal
+        drawGoldHeap(centerX + 80f, centerY + 40f)
+        drawTent(centerX - 250f, centerY - 5f, animTime)
+        drawTent(centerX - 205f, centerY + 2f, animTime)
+        drawElixirCrystal(centerX - 285f, centerY - 30f, animTime)
+
         drawVillageRock(centerX + 180f, centerY + 95f, 1f)
         drawVillageRock(centerX - 350f, centerY + 95f, 0.8f)
         drawVillageRock(centerX - 120f, centerY + 95f, 0.7f)
@@ -593,6 +603,43 @@ private fun DrawScope.drawVillageRock(x: Float, y: Float, s: Float) {
     drawOval(Color(0xFF78909C).copy(alpha = 0.6f), topLeft = Offset(x - 4f * s, y - 12f * s), size = Size(8f * s, 5f * s))
 }
 
+private fun DrawScope.drawVillageWall(x: Float, y: Float, animTime: Float) {
+    drawRect(Color(0x40000000), topLeft = Offset(x - 18f, y - 6f), size = Size(36f, 16f))
+    drawRoundRect(StoneLight, topLeft = Offset(x - 15f, y - 12f), size = Size(30f, 18f), cornerRadius = CornerRadius(3f))
+    drawRect(StoneDark, topLeft = Offset(x - 15f, y - 4f), size = Size(30f, 5f))
+    drawRect(StoneDark, topLeft = Offset(x - 15f, y - 12f), size = Size(30f, 2f))
+    val glow = (0.3f + 0.2f * sin(animTime * 1.5f + x * 0.05f).toFloat()).coerceIn(0f, 1f)
+    drawCircle(Color(0xFFB2FF59).copy(alpha = glow * 0.35f), radius = 2.5f, center = Offset(x, y - 3f))
+}
+
+private fun DrawScope.drawGoldHeap(x: Float, y: Float) {
+    drawOval(Color(0x50000000), topLeft = Offset(x - 10f, y + 3f), size = Size(20f, 5f))
+    drawCircle(Color(0xFFFFD700), radius = 5f, center = Offset(x - 6f, y))
+    drawCircle(Color(0xFFFDD835), radius = 5f, center = Offset(x + 6f, y))
+    drawCircle(Color(0xFFFFC107), radius = 5f, center = Offset(x, y - 4f))
+    drawCircle(Color.White.copy(alpha = 0.5f), radius = 1.5f, center = Offset(x - 7f, y - 1f))
+    drawCircle(Color.White.copy(alpha = 0.5f), radius = 1.5f, center = Offset(x + 5f, y - 1f))
+}
+
+private fun DrawScope.drawTent(x: Float, y: Float, animTime: Float) {
+    drawOval(Color(0x40000000), topLeft = Offset(x - 17f, y - 1f), size = Size(34f, 6f))
+    val tent = Path().apply { moveTo(x, y - 22f); lineTo(x + 16f, y); lineTo(x - 16f, y); close() }
+    drawPath(tent, Color(0xFF3E6B42))
+    val flap = Path().apply { moveTo(x, y - 22f); lineTo(x + 16f, y); lineTo(x + 5f, y); close() }
+    drawPath(flap, Color(0xFF5B8A60))
+    drawLine(GrassDark, Offset(x, y - 22f), Offset(x, y), strokeWidth = 2f)
+    val sway = sin(animTime * 1.2f + x * 0.05f).toFloat() * 2f
+    drawLine(Color(0xFFFDD835), Offset(x, y - 22f), Offset(x + 3f + sway, y - 27f), strokeWidth = 2f)
+}
+
+private fun DrawScope.drawElixirCrystal(x: Float, y: Float, animTime: Float) {
+    val pulse = (0.3f + 0.25f * sin(animTime * 2f).toFloat()).coerceIn(0f, 1f)
+    val c = Path().apply { moveTo(x, y - 14f); lineTo(x + 8f, y - 6f); lineTo(x + 6f, y + 4f); lineTo(x - 6f, y + 4f); lineTo(x - 8f, y - 6f); close() }
+    drawPath(c, Color(0xFF9C27B0).copy(alpha = 0.5f + 0.3f * pulse))
+    drawCircle(Color(0xFFE040FB).copy(alpha = 0.4f + 0.3f * pulse), radius = 2f, center = Offset(x, y - 6f))
+    drawRect(Color(0x50000000), topLeft = Offset(x - 9f, y + 4f), size = Size(18f, 4f))
+}
+
 private fun loadDrawableBitmap(context: Context, name: String): ImageBitmap? {
     val id = context.resources.getIdentifier(name, "drawable", context.packageName)
     if (id == 0) return null
@@ -643,35 +690,30 @@ private fun DrawScope.drawVillageTree(x: Float, y: Float, animTime: Float) {
 @Composable
 private fun ResourceBar(player: Player, towerLevel: Int, onPremium: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().height(44.dp)
-            .background(Brush.horizontalGradient(listOf(BgPanel, BgPanelLight, BgPanel)))
-            .border(1.dp, GoldGlow)
-            .padding(horizontal = 8.dp),
+        Modifier.fillMaxWidth().height(48.dp)
+            .background(Brush.verticalGradient(listOf(Color(0xFF3A2E1B), Color(0xFF1E1B12))))
+            .border(1.dp, Color(0xFFB08D3E))
+            .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Settings
-        Box(Modifier.size(32.dp).background(BgCard, CircleShape).clickable { }, contentAlignment = Alignment.Center) {
-            Text("⚙️", fontSize = 16.sp)
+        Box(Modifier.size(32.dp).background(BgCard, CircleShape).border(1.dp, GoldGlow, CircleShape).clickable { }, contentAlignment = Alignment.Center) {
+            Text("⚙️", fontSize = 15.sp)
         }
 
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(4.dp))
 
-        // Level badge
-        Box(Modifier.background(Brush.verticalGradient(listOf(RoyalBlue, RoyalBlueDark)), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 3.dp)) {
-            Text("Lv$towerLevel", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        // Level badge (gold)
+        Box(Modifier.background(Brush.verticalGradient(listOf(GoldBright, GoldMedium)), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 3.dp)) {
+            Text("Lv$towerLevel", color = Color(0xFF2B1600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
         }
 
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(4.dp))
+        Box(Modifier.width(2.dp).height(26.dp).background(Color(0xFFB08D3E).copy(alpha = 0.4f)))
+        Spacer(Modifier.width(4.dp))
 
-        // HP bar
-        Box(Modifier.width(50.dp).height(8.dp).background(Color(0xFF1C1C1E), RoundedCornerShape(4.dp))) {
-            Box(Modifier.fillMaxWidth(0.8f).height(8.dp).background(Brush.horizontalGradient(listOf(Emerald, EmeraldLight)), RoundedCornerShape(4.dp)))
-        }
-
-        Spacer(Modifier.width(8.dp))
-
-        // Player name
-        Text(player.username, color = TextGold, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        // Trophy counter (Clash style)
+        Text("🏆 1250", color = TextGold, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.weight(1f))
 
         // Resource pills
         ResourcePill("💰", player.resources.toString(), GoldBright, iconRes = R.drawable.icon_gold)
@@ -1307,8 +1349,8 @@ private fun BottomNavBar(
 
 @Composable
 private fun NavItem(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit) {
-    val bgColor = if (selected) RoyalBlue.copy(alpha = 0.2f) else Color.Transparent
-    val borderColor = if (selected) RoyalBlue else Color.Transparent
+    val bgColor = if (selected) GoldBright.copy(alpha = 0.15f) else Color.Transparent
+    val borderColor = if (selected) GoldBright else Color.Transparent
 
     Column(
         Modifier.background(bgColor, RoundedCornerShape(8.dp)).border(1.dp, borderColor, RoundedCornerShape(8.dp))
@@ -1321,7 +1363,7 @@ private fun NavItem(iconRes: Int, label: String, selected: Boolean, onClick: () 
             modifier = Modifier.size(22.dp),
             contentScale = ContentScale.Fit
         )
-        Text(label, color = if (selected) RoyalBlue else TextGray, fontSize = 8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Text(label, color = if (selected) GoldBright else TextGray, fontSize = 8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }
 }
 

@@ -72,6 +72,8 @@ import kotlin.math.cos
 import kotlin.math.sqrt
 import kotlin.math.abs
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 private val BgCard = Color(0xFF1E1E30)
@@ -130,9 +132,12 @@ private class HitParticle(var x: Float, var y: Float, var vx: Float, var vy: Flo
 private class FloatingText(var text: String, var x: Float, var y: Float, var life: Float, val color: Int)
 @Composable
 fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, onFinish: (Boolean) -> Unit) {
-    val context = LocalContext.current
+val context = LocalContext.current
     val spriteNames = listOf("goblin","dragon","barbarian","archer","knight","giant","wizard","healer","assassin","sorceress","skeleton","minotaur","phoenix","golem","demon")
-    val spriteMap = remember { spriteNames.associateWith { loadBattleBitmap(context, it) } }
+    var spriteMap by remember { mutableStateOf<Map<String, ImageBitmap?>>(emptyMap()) }
+    LaunchedEffect(Unit) {
+        spriteMap = withContext(Dispatchers.Default) { spriteNames.associateWith { loadBattleBitmap(context, it) } }
+    }
     var elapsed by remember { mutableFloatStateOf(0f) }
     var elixir by remember { mutableFloatStateOf(5f) }
     var selectedCard by remember { mutableIntStateOf(-1) }
@@ -157,9 +162,10 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
     var buildingsInit by remember { mutableStateOf(false) }
     var nextCardIdx by remember { mutableIntStateOf(4) }
 
-    LaunchedEffect(Unit) {
+LaunchedEffect(Unit) {
         while (true) {
             delay(16)
+            try {
             val dt = 0.016f
             elapsed += dt
             screenShakeX *= 0.85f; screenShakeY *= 0.85f
@@ -320,6 +326,11 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
             }
             if (finished) resultAlpha = (resultAlpha + dt * 1.5f).coerceAtMost(1f)
             if (finished && resultAlpha >= 0.95f) { delay(2000); onFinish(victory); return@LaunchedEffect }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("BattleScreen", "frame error", e)
+            }
         }
     }
     Box(Modifier.fillMaxSize().graphicsLayer {
@@ -383,19 +394,32 @@ detectTapGestures { offset ->
                 if (finished) drawResultOverlay(w,h,victory,resultAlpha,titlePaint)
             }
         }
-        Box(Modifier.align(Alignment.TopCenter).padding(top=8.dp)) {
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                Text("Elixir",color=Color(0xFFE040FB),fontWeight=FontWeight.Bold,fontSize=11.sp)
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.width(180.dp).height(14.dp).shadow(2.dp,RoundedCornerShape(7.dp)).background(Color(0xFF1A1A2E),RoundedCornerShape(7.dp)).border(1.dp,Color(0xFF9C27B0).copy(alpha=0.5f),RoundedCornerShape(7.dp))) {
-                    Box(Modifier.fillMaxWidth((elixir/10f).coerceIn(0f,1f)).height(14.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9C27B0),Color(0xFFE040FB))),RoundedCornerShape(7.dp)))
-                }
-                Spacer(Modifier.width(6.dp)); Text("${elixir.toInt()}/10",color=Color(0xFFE040FB),fontWeight=FontWeight.Bold,fontSize=11.sp)
+        Row(Modifier.align(Alignment.TopStart).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.background(Brush.verticalGradient(listOf(Color(0xFF37474F), Color(0xFF263238))), RoundedCornerShape(8.dp)).border(1.dp, Color(0xFFFFD54F).copy(alpha = 0.4f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                Text("⚔️ RAID", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.background(Brush.verticalGradient(listOf(Color(0xFF263238), Color(0xFF1A1F24))), RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF90A4AE).copy(alpha = 0.3f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                Text("🏰 ${buildings.count { !it.destroyed }} LEFT", color = Color(0xFFB0BEC5), fontWeight = FontWeight.Bold, fontSize = 11.sp)
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).padding(8.dp).fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0x22000000),Color(0xAA000000))),RoundedCornerShape(14.dp)).padding(vertical=6.dp)) {
-            Row(horizontalArrangement=Arrangement.Center,modifier=Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.align(Alignment.BottomCenter).padding(horizontal = 8.dp, vertical = 8.dp).fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color(0x33000000), Color(0xCC000000))), RoundedCornerShape(14.dp)).padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
                 hand.forEachIndexed { idx, deckIdx -> if (deckIdx < deck.size) { val card=deck[deckIdx]; val isSel=idx==selectedCard; val canAff=elixir>=card.cost; BattleCard(card=card,selected=isSel,canAfford=canAff,spriteMap=spriteMap,onClick={ if(canAff) selectedCard=if(selectedCard==idx)-1 else idx }) } }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⚡", color = Color(0xFFE040FB), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.width(220.dp).height(16.dp).shadow(2.dp, RoundedCornerShape(8.dp)).background(Color(0xFF1A1A2E), RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF9C27B0).copy(alpha = 0.6f), RoundedCornerShape(8.dp))) {
+                    Box(Modifier.fillMaxWidth((elixir / 10f).coerceIn(0f, 1f)).height(16.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9C27B0), Color(0xFFE040FB))), RoundedCornerShape(8.dp)))
+                }
+                Spacer(Modifier.width(6.dp))
+                Text("${elixir.toInt()}/10", color = Color(0xFFE040FB), fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
         if (elapsed < 2f && deployed.isEmpty()) { val a=(1f-elapsed/2f).coerceIn(0f,1f); Text("SELECT A CARD, THEN TAP TO DEPLOY",color=Color(0xFFFFD54F).copy(alpha=a),fontWeight=FontWeight.Bold,fontSize=14.sp,modifier=Modifier.align(Alignment.Center).padding(top=80.dp)) }
