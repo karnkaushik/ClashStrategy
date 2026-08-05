@@ -327,15 +327,18 @@ fun BattleScreen(army: List<GameCharacter>, towerName: String, towerHp: Float, o
         alpha = ent; scaleX = 0.85f + 0.15f * ent; scaleY = 0.85f + 0.15f * ent
     }) {
         Canvas(Modifier.fillMaxSize().pointerInput(selectedCard, buildingsInit) {
-            detectTapGestures { offset ->
-                if (selectedCard >= 0 && hand[selectedCard] < deck.size) {
+detectTapGestures { offset ->
+                if (selectedCard >= 0 && hand[selectedCard] < deck.size && groundYState > 0f) {
                     val cardIdx = hand[selectedCard]
                     val card = deck[cardIdx]
                     if (elixir >= card.cost) {
                         elixir -= card.cost
-                        val unit = DeployedUnit(card = card, x = offset.x, y = offset.y.coerceIn(groundYState * 0.4f, groundYState - 5f), hp = card.hp.toFloat(), maxHp = card.hp.toFloat(), damage = card.damage, speed = card.speed, stealthed = card.ability == AbilityType.STEALTH)
+                        val minY = groundYState * 0.4f
+                        val maxY = (groundYState - 5f).coerceAtLeast(minY)
+                        val y = offset.y.coerceIn(minY, maxY)
+                        val unit = DeployedUnit(card = card, x = offset.x, y = y, hp = card.hp.toFloat(), maxHp = card.hp.toFloat(), damage = card.damage, speed = card.speed, stealthed = card.ability == AbilityType.STEALTH)
                         deployed.add(unit)
-                        spawnEffects.add(SpawnEffect(offset.x, offset.y.coerceIn(groundYState * 0.4f, groundYState - 5f)))
+                        spawnEffects.add(SpawnEffect(offset.x, y))
                         if (nextCardIdx < deck.size) { hand[selectedCard] = nextCardIdx; nextCardIdx = (nextCardIdx + 1) % deck.size }
                         selectedCard = -1
                     }

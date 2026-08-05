@@ -82,7 +82,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.clashgame.strategy.model.Dragon
 import com.clashgame.strategy.model.GoblinWarrior
 import com.clashgame.strategy.model.Barbarian
@@ -101,8 +100,6 @@ import com.clashgame.strategy.model.DemonKing
 import com.clashgame.strategy.model.Guild
 import com.clashgame.strategy.model.GuildGate
 import com.clashgame.strategy.model.Player
-import com.clashgame.strategy.model.Element
-import com.clashgame.strategy.model.Rarity
 import kotlin.random.Random
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.lerp
@@ -178,6 +175,7 @@ private sealed class Screen {
     object Heroes : Screen()
     object Shop : Screen()
     object Clan : Screen()
+    object Battle : Screen()
 }
 
 // =================== MAIN ACTIVITY ===================
@@ -185,16 +183,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
-            runOnUiThread {
-                setContent {
-                    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0D0D1A))) {
-                        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("CRASH: ${e.javaClass.simpleName}", color = androidx.compose.ui.graphics.Color.Red, fontSize = 14.sp)
-                            Text(e.message ?: "unknown", color = androidx.compose.ui.graphics.Color(0xFF9E9E9E), fontSize = 10.sp)
+            try {
+                runOnUiThread {
+                    try {
+                        setContent {
+                            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0D0D1A))) {
+                                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("CRASH: ${e.javaClass.simpleName}", color = androidx.compose.ui.graphics.Color.Red, fontSize = 14.sp)
+                                    Text(e.message ?: "unknown", color = androidx.compose.ui.graphics.Color(0xFF9E9E9E), fontSize = 10.sp)
+                                }
+                            }
                         }
-                    }
+                    } catch (_: Throwable) {}
                 }
-            }
+            } catch (_: Throwable) {}
         }
         setContent { GameApp() }
     }
@@ -204,7 +206,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GameApp() {
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
-    var battleActive by remember { mutableStateOf(false) }
     var showUpgrade by remember { mutableStateOf(false) }
     var showPremium by remember { mutableStateOf(false) }
     var showHeroDetail by remember { mutableStateOf<HeroData?>(null) }
@@ -259,7 +260,7 @@ fun GameApp() {
                 Screen.Home -> HomeScreen(
                     player = player, towerLevel = tower.level, towerHp = tower.health,
                     message = message, messageColor = messageColor, version = version,
-                    onBattle = { battleActive = true },
+                    onBattle = { screen = Screen.Battle },
                     onHeroes = { screen = Screen.Heroes },
                     onShop = { screen = Screen.Shop },
                     onClan = { screen = Screen.Clan },
@@ -306,20 +307,12 @@ fun GameApp() {
                     guild = guild, guildGate = guildGate, player = player,
                     onBack = { screen = Screen.Home }
                 )
-            }
-        }
-
-        if (battleActive) {
-            Dialog(
-                onDismissRequest = { battleActive = false },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
-            ) {
-                BattleScreen(
+                Screen.Battle -> BattleScreen(
                     army = player.army.toList(), towerName = "Enemy Tower", towerHp = 400f,
                     onFinish = { won ->
                         if (won) { player.resources += 150; message = "VICTORY! +150 Gold"; messageColor = GoldBright }
                         else { player.resources += 60; message = "DEFEAT +60 Gold"; messageColor = Ruby }
-                        version++; battleActive = false
+                        version++; screen = Screen.Home
                     }
                 )
             }
