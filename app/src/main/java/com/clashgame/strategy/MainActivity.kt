@@ -20,6 +20,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Image
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,10 +53,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +70,19 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.clashgame.strategy.model.Dragon
 import com.clashgame.strategy.model.GoblinWarrior
+import com.clashgame.strategy.model.Barbarian
+import com.clashgame.strategy.model.Archer
+import com.clashgame.strategy.model.Knight
+import com.clashgame.strategy.model.StoneGiant
+import com.clashgame.strategy.model.Wizard
+import com.clashgame.strategy.model.Healer
+import com.clashgame.strategy.model.Assassin
+import com.clashgame.strategy.model.Sorceress
+import com.clashgame.strategy.model.Skeleton
+import com.clashgame.strategy.model.Minotaur
+import com.clashgame.strategy.model.Phoenix
+import com.clashgame.strategy.model.Golem
+import com.clashgame.strategy.model.DemonKing
 import com.clashgame.strategy.model.Guild
 import com.clashgame.strategy.model.GuildGate
 import com.clashgame.strategy.model.Player
@@ -176,14 +193,21 @@ fun GameApp() {
 
     val heroes = remember {
         listOf(
-            HeroData("🐉", "Fire Drake", Rarity.LEGENDARY, Element.FIRE, 5, 10, 500, 500, 100, 100, 184, 200, 5),
-            HeroData("👺", "Shadow Goblin", Rarity.RARE, Element.EARTH, 3, 10, 150, 200, 40, 60, 80, 120, 3),
-            HeroData("🧙", "Arcane Mage", Rarity.EPIC, Element.ARCANE, 1, 10, 120, 300, 80, 120, 20, 100, 1),
-            HeroData("🗡️", "Iron Knight", Rarity.COMMON, Element.EARTH, 2, 10, 200, 250, 50, 70, 60, 80, 2),
-            HeroData("🏹", "Swift Archer", Rarity.RARE, Element.WATER, 4, 10, 100, 180, 60, 90, 140, 160, 4),
-            HeroData("⚡", "Storm Caller", Rarity.MYTHIC, Element.THUNDER, 1, 10, 180, 400, 120, 180, 10, 200, 1),
-            HeroData("❄️", "Frost Queen", Rarity.EPIC, Element.ICE, 3, 10, 160, 280, 70, 110, 100, 140, 3),
-            HeroData("🔥", "Inferno Lord", Rarity.LEGENDARY, Element.FIRE, 2, 10, 400, 450, 90, 130, 50, 160, 2),
+            HeroData("⚔️", "Kingdom Barbarian", Rarity.RARE, Element.EARTH, 2, 10, 250, 250, 65, 65, 60, 80, 2),
+            HeroData("🏹", "Royal Archer", Rarity.RARE, Element.WATER, 2, 10, 120, 120, 55, 55, 60, 80, 2),
+            HeroData("🪨", "Stone Giant", Rarity.EPIC, Element.EARTH, 1, 10, 800, 800, 30, 30, 10, 100, 1),
+            HeroData("🧙", "Arcane Wizard", Rarity.EPIC, Element.ARCANE, 1, 10, 100, 100, 80, 80, 10, 100, 1),
+            HeroData("🐉", "Fire Dragon", Rarity.LEGENDARY, Element.FIRE, 1, 10, 500, 500, 100, 100, 10, 200, 1),
+            HeroData("👺", "Goblin Raider", Rarity.COMMON, Element.EARTH, 1, 10, 150, 150, 40, 40, 10, 60, 1),
+            HeroData("🛡️", "Royal Knight", Rarity.RARE, Element.HOLY, 1, 10, 350, 350, 50, 50, 10, 80, 1),
+            HeroData("✝️", "Holy Healer", Rarity.EPIC, Element.HOLY, 1, 10, 90, 90, 15, 15, 10, 100, 1),
+            HeroData("🗡️", "Shadow Assassin", Rarity.EPIC, Element.SHADOW, 1, 10, 130, 130, 90, 90, 10, 100, 1),
+            HeroData("❄️", "Ice Sorceress", Rarity.EPIC, Element.ICE, 1, 10, 110, 110, 75, 75, 10, 100, 1),
+            HeroData("💀", "Skeleton Warrior", Rarity.COMMON, Element.SHADOW, 1, 10, 180, 180, 35, 35, 10, 60, 1),
+            HeroData("🐂", "Minotaur Berserker", Rarity.LEGENDARY, Element.FIRE, 1, 10, 600, 600, 70, 70, 10, 200, 1),
+            HeroData("🔥", "Phoenix", Rarity.LEGENDARY, Element.FIRE, 1, 10, 300, 300, 85, 85, 10, 200, 1),
+            HeroData("🗿", "Battle Golem", Rarity.LEGENDARY, Element.ARCANE, 1, 10, 900, 900, 45, 45, 10, 200, 1),
+            HeroData("😈", "Demon King", Rarity.MYTHIC, Element.FIRE, 1, 10, 1200, 1200, 120, 120, 10, 200, 1),
         )
     }
 
@@ -206,19 +230,32 @@ fun GameApp() {
             )
             Screen.Shop -> ShopScreen(
                 player = player, onBack = { screen = Screen.Home },
-                onBuyGoblin = {
+                onBuy = { item ->
                     version++
-                    if (player.resources >= 50) {
-                        player.resources -= 50; player.army.add(GoblinWarrior())
-                        message = "Recruited Goblin Warrior!"; messageColor = Emerald
-                    } else { message = "Not enough gold!"; messageColor = Ruby }
-                },
-                onBuyDragon = {
-                    version++
-                    if (player.resources >= 150) {
-                        player.resources -= 150; player.army.add(Dragon())
-                        message = "Recruited Fire Dragon!"; messageColor = Emerald
-                    } else { message = "Not enough gold!"; messageColor = Ruby }
+                    if (player.resources >= item.cost) {
+                        player.resources -= item.cost
+                        when (item.name) {
+                            "Goblin Raider" -> player.army.add(GoblinWarrior())
+                            "Fire Dragon" -> player.army.add(Dragon())
+                            "Kingdom Barbarian" -> player.army.add(Barbarian())
+                            "Royal Archer" -> player.army.add(Archer())
+                            "Royal Knight" -> player.army.add(Knight())
+                            "Stone Giant" -> player.army.add(StoneGiant())
+                            "Arcane Wizard" -> player.army.add(Wizard())
+                            "Holy Healer" -> player.army.add(Healer())
+                            "Shadow Assassin" -> player.army.add(Assassin())
+                            "Ice Sorceress" -> player.army.add(Sorceress())
+                            "Skeleton Warrior" -> player.army.add(Skeleton())
+                            "Minotaur Berserker" -> player.army.add(Minotaur())
+                            "Phoenix" -> player.army.add(Phoenix())
+                            "Battle Golem" -> player.army.add(Golem())
+                            "Demon King" -> player.army.add(DemonKing())
+                            else -> player.army.add(GoblinWarrior())
+                        }
+                        message = "Recruited ${item.name}!"; messageColor = Emerald
+                    } else {
+                        message = "Not enough gold!"; messageColor = Ruby
+                    }
                 },
                 onPremium = { showPremium = true }
             )
@@ -306,7 +343,7 @@ private fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 GlossyButton(
-                    text = "⚔️  BATTLE", width = 200.dp, height = 56.dp,
+                    text = "⚔️  BATTLE", width = 200.dp, height = 56.dp, iconRes = R.drawable.btn_play,
                     gradient = listOf(GoldBright, GoldDark), glowAlpha = glowPulse,
                     onClick = onBattle
                 )
@@ -500,18 +537,18 @@ private fun ResourceBar(player: Player, towerLevel: Int, onPremium: () -> Unit) 
         Text(player.username, color = TextGold, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.weight(1f))
 
         // Resource pills
-        ResourcePill("💰", player.resources.toString(), GoldBright)
+        ResourcePill("💰", player.resources.toString(), GoldBright, iconRes = R.drawable.icon_gold)
         Spacer(Modifier.width(4.dp))
-        ResourcePill("💎", "99559", RoyalBlue, onClick = onPremium)
+        ResourcePill("💎", "99559", RoyalBlue, iconRes = R.drawable.icon_gem, onClick = onPremium)
         Spacer(Modifier.width(4.dp))
-        ResourcePill("🧪", "1250", MysticPurple)
+        ResourcePill("🧪", "1250", MysticPurple, iconRes = R.drawable.icon_mana)
         Spacer(Modifier.width(4.dp))
         ResourcePill("🍖", "847", ElementFire)
     }
 }
 
 @Composable
-private fun ResourcePill(icon: String, value: String, color: Color, onClick: () -> Unit = {}) {
+private fun ResourcePill(icon: String, value: String, color: Color, iconRes: Int = 0, onClick: () -> Unit = {}) {
     Row(
         Modifier.background(Brush.verticalGradient(listOf(BgCard, BgPanel)), RoundedCornerShape(8.dp))
             .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
@@ -519,7 +556,16 @@ private fun ResourcePill(icon: String, value: String, color: Color, onClick: () 
             .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(icon, fontSize = 11.sp)
+        if (iconRes != 0) {
+            Image(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            Text(icon, fontSize = 11.sp)
+        }
         Spacer(Modifier.width(2.dp))
         Text(value, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 10.sp)
     }
@@ -723,17 +769,28 @@ private fun HeroStatBar(label: String, current: Int, max: Int, color: Color) {
 @Composable
 private fun ShopScreen(
     player: Player, onBack: () -> Unit,
-    onBuyGoblin: () -> Unit, onBuyDragon: () -> Unit,
+    onBuy: (ShopItemData) -> Unit,
     onPremium: () -> Unit
 ) {
     var tab by remember { mutableIntStateOf(0) }
     val tabs = listOf("TROOPS", "SPELLS", "RESOURCES", "PREMIUM")
 
     val troopItems = listOf(
-        ShopItemData("👺", "Goblin Warrior", "Fast melee fighter", 50, "DMG", "40", Emerald),
-        ShopItemData("🐉", "Fire Dragon", "Flying terror", 150, "DMG", "100", Ruby),
-        ShopItemData("🗡️", "Iron Knight", "Heavy tank", 100, "HP", "250", RoyalBlue),
-        ShopItemData("🏹", "Swift Archer", "Ranged DPS", 80, "DMG", "60", ElementWater),
+        ShopItemData("⚔️", "Kingdom Barbarian", "Fast melee attacker", 100, "DMG", "65", GoldBright),
+        ShopItemData("🏹", "Royal Archer", "Long-range precision", 80, "DMG", "55", ElementEarth),
+        ShopItemData("🪨", "Stone Giant", "Massive tank", 200, "HP", "800", ElementEarth),
+        ShopItemData("🧙", "Arcane Wizard", "Area magic attacks", 180, "DMG", "80", ElementArcane),
+        ShopItemData("🐉", "Fire Dragon", "Flying fire terror", 250, "DMG", "100", ElementFire),
+        ShopItemData("👺", "Goblin Raider", "Steals resources", 50, "DMG", "40", Emerald),
+        ShopItemData("🛡️", "Royal Knight", "Balanced fighter", 120, "DMG", "50", RoyalBlue),
+        ShopItemData("✝️", "Holy Healer", "Restores allies", 150, "HEAL", "15", GoldBright),
+        ShopItemData("🗡️", "Shadow Assassin", "Stealth killer", 200, "DMG", "90", MysticPurple),
+        ShopItemData("❄️", "Ice Sorceress", "Freezes enemies", 170, "DMG", "75", ElementIce),
+        ShopItemData("💀", "Skeleton Warrior", "Undead fighter", 60, "DMG", "35", ElementShadow),
+        ShopItemData("🐂", "Minotaur Berserker", "Heavy melee beast", 280, "DMG", "70", ElementFire),
+        ShopItemData("🔥", "Phoenix", "Revives after defeat", 300, "DMG", "85", ElementFire),
+        ShopItemData("🗿", "Battle Golem", "Siege tank", 350, "HP", "900", ElementArcane),
+        ShopItemData("😈", "Demon King", "Legendary boss", 500, "DMG", "120", ElementFire),
     )
     val spellItems = listOf(
         ShopItemData("🛡️", "Shield Spell", "+30 DEF for 10s", 80, "DEF", "+30", RoyalBlue),
@@ -776,9 +833,9 @@ private fun ShopScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             when (tab) {
-                0 -> troopItems.forEach { item -> ShopItemCard(item = item, onBuy = if (item.name == "Goblin Warrior") onBuyGoblin else onBuyDragon) }
-                1 -> spellItems.forEach { item -> ShopItemCard(item = item, onBuy = onBuyGoblin) }
-                2 -> resourceItems.forEach { item -> ShopItemCard(item = item, onBuy = onBuyGoblin) }
+                0 -> troopItems.forEach { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
+                1 -> spellItems.forEach { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
+                2 -> resourceItems.forEach { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
                 3 -> PremiumShopCard(onPremium = onPremium)
             }
         }
@@ -1050,32 +1107,37 @@ private fun BottomNavBar(
     onShop: () -> Unit, onClan: () -> Unit
 ) {
     Row(
-        Modifier.fillMaxWidth().height(48.dp)
+        Modifier.fillMaxWidth().height(52.dp)
             .background(Brush.verticalGradient(listOf(BgPanelLight, BgPanel)))
             .border(1.dp, GoldGlow)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NavItem("⚔️", "Attack", currentScreen == "attack", onAttack)
-        NavItem("🛡️", "Heroes", currentScreen == "heroes", onHeroes)
-        NavItem("🏪", "Shop", currentScreen == "shop", onShop)
-        NavItem("👥", "Clan", currentScreen == "clan", onClan)
-        NavItem("⚙️", "Settings", currentScreen == "settings", {})
+        NavItem(R.drawable.ic_battle, "Attack", currentScreen == "attack", onAttack)
+        NavItem(R.drawable.ic_heroes, "Heroes", currentScreen == "heroes", onHeroes)
+        NavItem(R.drawable.ic_home, "Home", currentScreen == "home", onAttack)
+        NavItem(R.drawable.ic_shop, "Shop", currentScreen == "shop", onShop)
+        NavItem(R.drawable.ic_settings, "Settings", currentScreen == "settings", {})
     }
 }
 
 @Composable
-private fun NavItem(icon: String, label: String, selected: Boolean, onClick: () -> Unit) {
+private fun NavItem(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit) {
     val bgColor = if (selected) RoyalBlue.copy(alpha = 0.2f) else Color.Transparent
     val borderColor = if (selected) RoyalBlue else Color.Transparent
 
     Column(
         Modifier.background(bgColor, RoundedCornerShape(8.dp)).border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 4.dp),
+            .clickable { onClick() }.padding(horizontal = 8.dp, vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(icon, fontSize = 18.sp)
+        Image(
+            painter = painterResource(id = iconRes),
+            contentDescription = label,
+            modifier = Modifier.size(22.dp),
+            contentScale = ContentScale.Fit
+        )
         Text(label, color = if (selected) RoyalBlue else TextGray, fontSize = 8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }
 }
@@ -1085,6 +1147,7 @@ private fun NavItem(icon: String, label: String, selected: Boolean, onClick: () 
 private fun GlossyButton(
     text: String, width: Dp, height: Dp,
     gradient: List<Color>, glowAlpha: Float = 0f,
+    iconRes: Int = 0,
     onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -1104,6 +1167,19 @@ private fun GlossyButton(
                 drawCircle(GoldGlow.copy(alpha = glowAlpha * 0.3f), radius = size.width * 0.4f)
             }
         }
-        Text(text, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        if (iconRes != 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(text, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        } else {
+            Text(text, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
     }
 }

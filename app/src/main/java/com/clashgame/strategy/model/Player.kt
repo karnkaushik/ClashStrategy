@@ -11,6 +11,9 @@ class Player(val username: String, var resources: Int) {
         baseBuildings.add(DefenseTower())
         army.add(GoblinWarrior())
         army.add(Dragon())
+        army.add(Barbarian())
+        army.add(Archer())
+        army.add(Knight())
     }
 
     fun attackPlayer(target: Player): String {
