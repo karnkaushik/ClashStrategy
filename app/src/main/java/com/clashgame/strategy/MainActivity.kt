@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -47,7 +46,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +57,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.clashgame.strategy.model.Dragon
 import com.clashgame.strategy.model.GoblinWarrior
 import com.clashgame.strategy.model.Guild
@@ -96,11 +96,11 @@ fun GameScreen() {
     val guildGate = remember { GuildGate(guild) }
 
     var version by remember { mutableStateOf(0) }
-    var shakeTrigger by remember { mutableStateOf(0) }
     var message by remember { mutableStateOf("") }
     var messageColor by remember { mutableStateOf(AccentGreen) }
     var showShop by remember { mutableStateOf(false) }
     var showGate by remember { mutableStateOf(false) }
+    var battleActive by remember { mutableStateOf(false) }
 
     val tower = player1.tower
 
@@ -127,17 +127,6 @@ fun GameScreen() {
         targetValue = if (tower.health <= 50) 1.25f else 1f,
         animationSpec = infiniteRepeatable(tween(400), RepeatMode.Reverse)
     )
-
-    // Screen shake when attacking
-    val shakeOffset = remember { Animatable(0f) }
-    LaunchedEffect(shakeTrigger) {
-        if (shakeTrigger > 0) {
-            shakeOffset.snapTo(0f)
-            for (step in listOf(-10f, 10f, -7f, 7f, 0f)) {
-                shakeOffset.animateTo(step, tween(50))
-            }
-        }
-    }
 
     Scaffold(
         containerColor = Background,
@@ -239,20 +228,13 @@ fun GameScreen() {
                     }
                 }
                 ActionButton("⚔️ Attack", Modifier.weight(1f)) {
-                    val result = player1.attackPlayer(player2)
-                    version++
-                    shakeTrigger++
-                    message = result
-                    messageColor = AccentGreen
+                    battleActive = true
                 }
             }
 
             ActionButton("🛒 Visit the Shop", Modifier.fillMaxWidth()) { showShop = true }
 
-            Card(
-                colors = CardDefaults.cardColors(containerColor = CardColor),
-                modifier = Modifier.offset(x = shakeOffset.value.dp)
-            ) {
+            Card(colors = CardDefaults.cardColors(containerColor = CardColor)) {
                 Column(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -261,6 +243,34 @@ fun GameScreen() {
                     Text("👤 ${player2.username}  |  💰 Resources: ${player2.resources}", color = TextColor)
                 }
             }
+        }
+    }
+
+    if (battleActive) {
+        Dialog(
+            onDismissRequest = { },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            BattleScreen(
+                army = player1.army.toList(),
+                towerName = player2.tower.name,
+                towerHp = player2.tower.health.toFloat(),
+                onFinish = { won ->
+                    if (won) {
+                        player1.resources += 150
+                        player2.resources -= 150
+                        message = "🏆 VICTORY! ${player2.username}'s base destroyed! Looted 150 resources!"
+                        messageColor = AccentGold
+                    } else {
+                        player1.resources += 80
+                        player2.resources -= 80
+                        message = "☠️ DEFEAT! ${player2.tower.name} held the line. Looted 80 resources!"
+                        messageColor = AccentRed
+                    }
+                    version++
+                    battleActive = false
+                }
+            )
         }
     }
 
