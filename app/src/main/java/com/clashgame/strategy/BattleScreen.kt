@@ -12,15 +12,20 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
@@ -57,6 +62,19 @@ private class DamageNumber(val text: String, val unit: BattleUnit?) {
 }
 
 private class Particle(var x: Float, var y: Float, val vx: Float, val vy: Float) {
+    var life = 1f
+}
+
+private class Confetti(
+    var x: Float,
+    var y: Float,
+    val vx: Float,
+    val vy: Float,
+    val color: Color,
+    val size: Float,
+    val spin: Float
+) {
+    var rot = Random.nextFloat() * 6.28f
     var life = 1f
 }
 
@@ -97,6 +115,7 @@ fun BattleScreen(
     val damageNumbers = remember { mutableStateListOf<DamageNumber>() }
     val arrows = remember { mutableStateListOf<Arrow>() }
     val particles = remember { mutableStateListOf<Particle>() }
+    val confetti = remember { mutableStateListOf<Confetti>() }
 
     val context = LocalContext.current
     val goblinBmp = remember { loadOptionalBitmap(context, "goblin") }
@@ -215,11 +234,22 @@ fun BattleScreen(
                 if (towerCurrentHp <= 0f) {
                     victory = true
                     finished = true
+                    spawnConfetti(confetti)
                 } else if (alive.isEmpty() && elapsed > 3f) {
                     victory = false
                     finished = true
+                    spawnConfetti(confetti)
                 }
             }
+
+            confetti.forEach { c ->
+                c.life -= dt * 0.35f
+                c.y += c.vy * dt
+                c.x += c.vx * dt
+                c.vy += 60f * dt
+                c.rot += c.spin * dt
+            }
+            confetti.removeAll { it.life <= 0f }
 
             if (finished) {
                 delay(1600)
@@ -335,22 +365,83 @@ fun BattleScreen(
             drawContext.canvas.nativeCanvas.drawText("BATTLE", w / 2f, h * 0.42f, titlePaint)
         }
 
-        // Result banner
+        // Result banner - Clash Royale style
         if (finished) {
-            drawRect(Color(0x77000000), size = Size(w, h))
-            val pulse = 1f + 0.04f * sin(elapsed * 6f)
-            titlePaint.textSize = w * 0.12f * pulse
-            titlePaint.color = if (victory) {
-                android.graphics.Color.rgb(255, 193, 7)
-            } else {
-                android.graphics.Color.rgb(239, 83, 80)
+            val tint = if (victory) Color(0xCC000000) else Color(0xCC2A0505)
+            drawRect(tint, size = Size(w, h))
+
+            // Confetti falling
+            confetti.forEach { c ->
+                withTransform({
+                    translate(c.x, c.y)
+                    rotate(c.rot * 57.3f)
+                }) {
+                    drawRect(
+                        c.color.copy(alpha = c.life.coerceIn(0f, 1f)),
+                        topLeft = Offset(-c.size / 2, -c.size / 2),
+                        size = Size(c.size, c.size * 0.6f)
+                    )
+                }
             }
+
+            val cx = w / 2f
+            val cy = h * 0.34f
+            val shieldS = w * 0.13f
+
+            if (victory) {
+                // Golden shield with crown
+                drawResultShield(cx, cy, shieldS, victory)
+            } else {
+                // Shattered gray shield
+                drawResultShield(cx, cy, shieldS, victory)
+            }
+
+            // Blue ribbon banner
+            val bannerY = cy + shieldS * 1.7f
+            val bannerW = w * 0.72f
+            drawRect(
+                Brush.horizontalGradient(listOf(VictoryBlueDark, VictoryBlue, VictoryBlueDark)),
+                topLeft = Offset(cx - bannerW / 2, bannerY),
+                size = Size(bannerW, h * 0.07f)
+            )
+            drawRect(
+                Color(0x88FFFFFF),
+                topLeft = Offset(cx - bannerW / 2, bannerY - 4f),
+                size = Size(bannerW, 4f)
+            )
+            titlePaint.textSize = h * 0.055f
+            titlePaint.color = android.graphics.Color.rgb(255, 255, 255)
             drawContext.canvas.nativeCanvas.drawText(
                 if (victory) "VICTORY!" else "DEFEAT",
-                w / 2f,
-                h * 0.45f,
+                cx,
+                bannerY + h * 0.048f,
                 titlePaint
             )
+
+            // Trophy line
+            titlePaint.textSize = h * 0.045f
+            titlePaint.color = if (victory) {
+                android.graphics.Color.rgb(255, 213, 79)
+            } else {
+                android.graphics.Color.rgb(255, 120, 120)
+            }
+            drawContext.canvas.nativeCanvas.drawText(
+                if (victory) "+30 TROPHIES  +150 GOLD" else "-30 TROPHIES  +60 GOLD",
+                cx,
+                bannerY + h * 0.10f,
+                titlePaint
+            )
+
+            // Loot chest on victory
+            if (victory) {
+                drawChest(cx - w * 0.28f, bannerY + h * 0.12f, w * 0.075f)
+                drawChest(cx + w * 0.28f, bannerY + h * 0.12f, w * 0.075f)
+            }
+
+            // Continue button hint
+            titlePaint.textSize = h * 0.03f
+            titlePaint.color = android.graphics.Color.rgb(180, 190, 200)
+            drawContext.canvas.nativeCanvas.drawText("TAP THE SCREEN TO CONTINUE", cx, h * 0.90f, titlePaint)
         }
     }
 }
@@ -508,6 +599,148 @@ private fun DrawScope.drawTroopHpBar(cx: Float, y: Float, ratio: Float, fly: Boo
 }
 
 private var cachedTitlePaint: Paint? = null
+
+private val VictoryBlue = Color(0xFF1565C0)
+private val VictoryBlueDark = Color(0xFF0D47A1)
+private val VictoryGold = Color(0xFFF5A623)
+private val VictoryGoldDark = Color(0xFFC4841D)
+private val VictoryGoldBorder = Color(0xFFFFD86B)
+private val ShardGray = Color(0xFF9E9E9E)
+private val ShardGrayDark = Color(0xFF616161)
+
+private fun spawnConfetti(confetti: SnapshotStateList<Confetti>) {
+    val colors = listOf(
+        Color(0xFFF5A623), Color(0xFF42A5F5), Color(0xFF66BB6A),
+        Color(0xFFEF5350), Color(0xFFAB47BC), Color(0xFFFFF176)
+    )
+    repeat(60) {
+        confetti.add(
+            Confetti(
+                x = Random.nextFloat() * 800f,
+                y = -20f - Random.nextFloat() * 200f,
+                vx = Random.nextFloat() * 60f - 30f,
+                vy = 90f + Random.nextFloat() * 90f,
+                color = colors[Random.nextInt(colors.size)],
+                size = 6f + Random.nextFloat() * 8f,
+                spin = Random.nextFloat() * 8f - 4f
+            )
+        )
+    }
+}
+
+private fun DrawScope.drawResultShield(cx: Float, cy: Float, s: Float, victory: Boolean) {
+    val shield = Path().apply {
+        moveTo(cx, cy - s)
+        cubicTo(cx + s * 0.95f, cy - s * 0.8f, cx + s * 1.08f, cy - s * 0.1f, cx + s * 0.75f, cy + s * 0.45f)
+        lineTo(cx, cy + s * 1.05f)
+        lineTo(cx - s * 0.75f, cy + s * 0.45f)
+        cubicTo(cx - s * 1.08f, cy - s * 0.1f, cx - s * 0.95f, cy - s * 0.8f, cx, cy - s)
+        close()
+    }
+    val border = Path().apply {
+        moveTo(cx, cy - s * 1.12f)
+        cubicTo(cx + s * 1.05f, cy - s * 0.9f, cx + s * 1.2f, cy - s * 0.1f, cx + s * 0.85f, cy + s * 0.5f)
+        lineTo(cx, cy + s * 1.16f)
+        lineTo(cx - s * 0.85f, cy + s * 0.5f)
+        cubicTo(cx - s * 1.2f, cy - s * 0.1f, cx - s * 1.05f, cy - s * 0.9f, cx, cy - s * 1.12f)
+        close()
+    }
+
+    if (victory) {
+        drawPath(
+            border,
+            Brush.linearGradient(listOf(VictoryGold, VictoryGoldDark, VictoryGoldDark))
+        )
+        drawPath(
+            shield,
+            Brush.linearGradient(listOf(VictoryGold, VictoryGoldDark))
+        )
+        // Crown
+        val crown = Path().apply {
+            moveTo(cx - s * 0.45f, cy - s * 1.15f)
+            lineTo(cx - s * 0.28f, cy - s * 1.5f)
+            lineTo(cx - s * 0.12f, cy - s * 1.2f)
+            lineTo(cx, cy - s * 1.55f)
+            lineTo(cx + s * 0.12f, cy - s * 1.2f)
+            lineTo(cx + s * 0.28f, cy - s * 1.5f)
+            lineTo(cx + s * 0.45f, cy - s * 1.15f)
+            close()
+        }
+        drawPath(crown, VictoryGold)
+        drawCircle(VictoryGoldBorder, radius = s * 0.08f, center = Offset(cx - s * 0.25f, cy - s * 1.22f))
+        drawCircle(VictoryGoldBorder, radius = s * 0.08f, center = Offset(cx, cy - s * 1.26f))
+        drawCircle(VictoryGoldBorder, radius = s * 0.08f, center = Offset(cx + s * 0.25f, cy - s * 1.22f))
+        // Emblem: crossed swords
+        drawLine(
+            VictoryGoldBorder,
+            Offset(cx - s * 0.3f, cy - s * 0.2f),
+            Offset(cx + s * 0.3f, cy + s * 0.2f),
+            strokeWidth = s * 0.09f,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            VictoryGoldBorder,
+            Offset(cx + s * 0.3f, cy - s * 0.2f),
+            Offset(cx - s * 0.3f, cy + s * 0.2f),
+            strokeWidth = s * 0.09f,
+            cap = StrokeCap.Round
+        )
+    } else {
+        // Broken gray shield
+        drawPath(
+            border,
+            Brush.linearGradient(listOf(ShardGray, ShardGrayDark, Color(0xFF424242)))
+        )
+        drawPath(shield, Brush.linearGradient(listOf(ShardGray, Color(0xFF757575))))
+        // Crack
+        val crack = Path().apply {
+            moveTo(cx - s * 0.15f, cy - s)
+            lineTo(cx + s * 0.1f, cy - s * 0.45f)
+            lineTo(cx - s * 0.05f, cy - s * 0.15f)
+            lineTo(cx + s * 0.18f, cy + s * 0.35f)
+            lineTo(cx - s * 0.05f, cy + s * 0.75f)
+        }
+        drawPath(crack, Color(0xFF212121), style = Stroke(width = s * 0.09f, cap = StrokeCap.Round))
+        // Broken piece falling
+        val piece = Path().apply {
+            moveTo(cx + s * 0.5f, cy - s * 0.5f)
+            lineTo(cx + s * 0.85f, cy - s * 0.35f)
+            lineTo(cx + s * 0.7f, cy - s * 0.05f)
+            close()
+        }
+        drawPath(piece, ShardGray)
+        drawPath(piece, Color(0xFF424242), style = Stroke(width = 3f))
+    }
+}
+
+private fun DrawScope.drawChest(cx: Float, baseY: Float, s: Float) {
+    // Shadow
+    drawOval(Color(0x55000000), topLeft = Offset(cx - s * 0.7f, baseY + s * 0.5f), size = Size(s * 1.4f, s * 0.25f))
+    // Body
+    drawRoundRect(
+        Color(0xFF6D4C2F),
+        topLeft = Offset(cx - s * 0.55f, baseY - s * 0.35f),
+        size = Size(s * 1.1f, s * 0.85f),
+        cornerRadius = CornerRadius(s * 0.05f)
+    )
+    // Lid
+    drawRoundRect(
+        Color(0xFF8B6914),
+        topLeft = Offset(cx - s * 0.6f, baseY - s * 0.6f),
+        size = Size(s * 1.2f, s * 0.3f),
+        cornerRadius = CornerRadius(s * 0.05f)
+    )
+    // Lock
+    drawCircle(Color(0xFFFFD86B), radius = s * 0.09f, center = Offset(cx, baseY - s * 0.28f))
+    drawCircle(Color(0xFF3E2723), radius = s * 0.04f, center = Offset(cx, baseY - s * 0.28f))
+    // Band
+    drawLine(
+        Color(0xFF8B6914),
+        Offset(cx - s * 0.55f, baseY - s * 0.05f),
+        Offset(cx + s * 0.55f, baseY - s * 0.05f),
+        strokeWidth = s * 0.06f
+    )
+}
 
 private fun titleTextPaint(): Paint {
     return cachedTitlePaint ?: Paint().apply {
