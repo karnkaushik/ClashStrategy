@@ -69,7 +69,7 @@ private class Confetti(
     var x: Float,
     var y: Float,
     val vx: Float,
-    val vy: Float,
+    var vy: Float,
     val color: Color,
     val size: Float,
     val spin: Float
