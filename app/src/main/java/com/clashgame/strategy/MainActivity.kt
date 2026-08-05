@@ -619,6 +619,9 @@ private fun HeroCard(hero: HeroData, onClick: () -> Unit) {
         Element.ARCANE -> ElementArcane
         Element.THUNDER -> ElementThunder
         Element.ICE -> ElementIce
+        Element.SHADOW -> ElementShadow
+        Element.HOLY -> GoldBright
+        Element.NONE -> TextGray
     }
 
     val interaction = remember { MutableInteractionSource() }
@@ -703,6 +706,7 @@ private fun HeroDetailDialog(hero: HeroData, onDismiss: () -> Unit) {
     val elementColor = when (hero.element) {
         Element.FIRE -> ElementFire; Element.EARTH -> ElementEarth; Element.WATER -> ElementWater
         Element.ARCANE -> ElementArcane; Element.THUNDER -> ElementThunder; Element.ICE -> ElementIce
+        Element.SHADOW -> ElementShadow; Element.HOLY -> GoldBright; Element.NONE -> TextGray
     }
 
     Dialog(onDismissRequest = onDismiss) {
