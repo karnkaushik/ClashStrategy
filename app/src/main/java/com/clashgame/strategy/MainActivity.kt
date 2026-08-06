@@ -420,8 +420,15 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         val tileW = 80f; val tileH = 40f
         val centerX = w * 0.5f; val centerY = h * 0.45f
 
-        // Sky with depth gradient
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF06091A), Color(0xFF0D1229), Color(0xFF141B3D), Color(0xFF1A1A2E))), size = Size(w, h))
+        // Sky with depth gradient (bright day)
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF64B5F6), Color(0xFF90CAF9), Color(0xFFBBDEFB), Color(0xFFE8F5E9))), size = Size(w, h))
+
+        // Sun with glow rays
+        val sunX = w * 0.82f; val sunY = h * 0.12f
+        drawCircle(Color(0x55FFF176), radius = w * 0.1f, center = Offset(sunX, sunY))
+        drawCircle(Color(0x88FFF59D), radius = w * 0.075f, center = Offset(sunX, sunY))
+        drawCircle(Color(0xFFFFF176), radius = w * 0.05f, center = Offset(sunX, sunY))
+        drawCircle(Color.White.copy(alpha = 0.6f), radius = w * 0.04f, center = Offset(sunX, sunY))
 
         // Parallax mountains (far layer)
         val mtnFar = Path().apply {
@@ -429,7 +436,7 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
             lineTo(w * 0.4f, h * 0.3f); lineTo(w * 0.55f, h * 0.38f); lineTo(w * 0.7f, h * 0.32f)
             lineTo(w * 0.85f, h * 0.4f); lineTo(w, h * 0.36f); lineTo(w, h * 0.65f); close()
         }
-        drawPath(mtnFar, Color(0xFF0F1525))
+        drawPath(mtnFar, Color(0xFF7FB0C9))
 
         // Parallax mountains (near layer)
         val mtnNear = Path().apply {
@@ -437,23 +444,15 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
             lineTo(w * 0.3f, h * 0.44f); lineTo(w * 0.45f, h * 0.5f); lineTo(w * 0.6f, h * 0.46f)
             lineTo(w * 0.75f, h * 0.52f); lineTo(w * 0.9f, h * 0.47f); lineTo(w, h * 0.51f); lineTo(w, h * 0.65f); close()
         }
-        drawPath(mtnNear, Color(0xFF141E35))
-
-        // Stars with twinkle
-        repeat(35) { i ->
-            val sx = w * ((i * 29 % 100) / 100f)
-            val sy = h * (0.02f + 0.25f * (i * 11 % 8) / 7f)
-            val twinkle = (0.2f + 0.4f * sin(animTime * 0.8f + i * 1.3f).toFloat()).coerceIn(0f, 1f)
-            drawCircle(Color.White.copy(alpha = twinkle), radius = 1f + (i % 3) * 0.6f, center = Offset(sx, sy))
-        }
+        drawPath(mtnNear, Color(0xFF5D8C5D))
 
         // Floating clouds (parallax)
         repeat(4) { i ->
             val cx = ((animTime * (6f + i * 3f) + i * 300f) % (w + 300f)) - 150f
             val cy = h * (0.08f + i * 0.06f)
             val cSize = 100f + i * 30f
-            drawOval(Color(0xFF1E2650).copy(alpha = 0.08f + i * 0.02f), topLeft = Offset(cx, cy), size = Size(cSize, cSize * 0.35f))
-            drawOval(Color(0xFF1A2040).copy(alpha = 0.06f + i * 0.01f), topLeft = Offset(cx + cSize * 0.2f, cy - cSize * 0.08f), size = Size(cSize * 0.6f, cSize * 0.25f))
+            drawOval(Color.White.copy(alpha = 0.7f), topLeft = Offset(cx, cy), size = Size(cSize, cSize * 0.35f))
+            drawOval(Color.White.copy(alpha = 0.5f), topLeft = Offset(cx + cSize * 0.2f, cy - cSize * 0.08f), size = Size(cSize * 0.6f, cSize * 0.25f))
         }
 
         // Ground plane (isometric) with depth shading
@@ -468,9 +467,9 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
                         lineTo(isoX, isoY + tileH / 2); lineTo(isoX - tileW / 2, isoY); close()
                     }
                     val depthFactor = (row.toFloat() / rows).coerceIn(0f, 1f)
-                    val tileColor = lerp(Color(0xFF2E7D32), Color(0xFF1B5E20), depthFactor)
+                    val tileColor = lerp(Color(0xFF66BB6A), Color(0xFF43A047), depthFactor)
                     drawPath(tile, tileColor)
-                    drawPath(tile, Color(0xFF1B5E20).copy(alpha = 0.3f), style = Stroke(1f))
+                    drawPath(tile, Color(0xFF2E7D32).copy(alpha = 0.35f), style = Stroke(1f))
                 }
             }
         }
@@ -539,13 +538,13 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         drawRect(Color.White.copy(alpha = 0.02f), topLeft = Offset(sweepX, centerY + 40f), size = Size(140f, h * 0.35f))
 
         // Title with subtitle + pulsing underline
-        uiTextPaint().apply { textSize = h * 0.05f; typeface = android.graphics.Typeface.DEFAULT_BOLD; color = android.graphics.Color.argb(255, 255, 213, 64) }.let { p ->
+        uiTextPaint().apply { textSize = h * 0.05f; typeface = android.graphics.Typeface.DEFAULT_BOLD; color = android.graphics.Color.argb(255, 26, 35, 126) }.let { p ->
             drawContext.canvas.nativeCanvas.drawText("CLASH STRATEGY", w * 0.5f, h * 0.068f, p)
         }
-        uiTextPaint().apply { textSize = h * 0.016f; color = android.graphics.Color.argb(190, 158, 158, 158) }.let { p ->
+        uiTextPaint().apply { textSize = h * 0.016f; color = android.graphics.Color.argb(200, 69, 90, 100) }.let { p ->
             drawContext.canvas.nativeCanvas.drawText("KINGDOM OF CHIEF KYLE", w * 0.5f, h * 0.095f, p)
         }
-        drawRect(Color(0xFFFFD54F).copy(alpha = 0.35f + 0.25f * sin(animTime * 1.5f).toFloat()), topLeft = Offset(w * 0.5f - w * 0.16f, h * 0.078f), size = Size(w * 0.32f, 2f))
+        drawRect(Color(0xFFFFC107).copy(alpha = 0.5f + 0.3f * sin(animTime * 1.5f).toFloat()), topLeft = Offset(w * 0.5f - w * 0.16f, h * 0.078f), size = Size(w * 0.32f, 2f))
 
         // River with animated shimmer
         val riverPath = Path().apply {
@@ -1333,8 +1332,8 @@ private fun BottomNavBar(
 ) {
     Row(
         Modifier.fillMaxWidth().height(52.dp)
-            .background(Brush.verticalGradient(listOf(BgPanelLight, BgPanel)))
-            .border(1.dp, GoldGlow)
+            .background(Brush.verticalGradient(listOf(Color(0xFF4A3A20), Color(0xFF2E2413))))
+            .border(1.dp, Color(0xFFB08D3E))
             .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
