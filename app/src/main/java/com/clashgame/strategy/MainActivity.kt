@@ -39,6 +39,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -107,11 +109,11 @@ import kotlin.math.sin
 import kotlin.math.cos
 
 // =================== COLOR PALETTE ===================
-private val BgDeep = Color(0xFF0D0D1A)
-private val BgDark = Color(0xFF12121F)
-private val BgPanel = Color(0xFF1A1A2E)
-private val BgPanelLight = Color(0xFF252540)
-private val BgCard = Color(0xFF1E1E35)
+private val BgDeep = Color(0xFF18291A)
+private val BgDark = Color(0xFF294328)
+private val BgPanel = Color(0xFF2E2A1C)
+private val BgPanelLight = Color(0xFF5A482B)
+private val BgCard = Color(0xFF40351F)
 
 // Clash-style fantasy palette
 private val WoodDark = Color(0xFF5D4A2A)
@@ -121,6 +123,12 @@ private val StoneLight = Color(0xFFB8A878)
 private val StoneDark = Color(0xFF8A7B5C)
 private val GrassBright = Color(0xFF4CAF50)
 private val GrassDark = Color(0xFF2E7D32)
+private val MossGreen = Color(0xFF689F38)
+private val MossGreenDark = Color(0xFF365D24)
+private val TroopPurple = Color(0xFF4B1D68)
+private val TroopPurpleDark = Color(0xFF1D0B2E)
+private val ParchmentLight = Color(0xFFE7D39B)
+private val ParchmentDark = Color(0xFF9C7B45)
 
 private val GoldBright = Color(0xFFFFD700)
 private val GoldMedium = Color(0xFFFFA500)
@@ -249,9 +257,11 @@ fun GameApp() {
             targetState = screen,
             transitionSpec = {
                 if (targetState is Screen.Home) {
-                    (slideInHorizontally { -it } + fadeIn() + scaleIn(initialScale = 0.92f)) togetherWith (slideOutHorizontally { it } + fadeOut() + scaleOut(targetScale = 0.92f))
+                    (slideInHorizontally { -it / 10 } + fadeIn(tween(180)) + scaleIn(initialScale = 1.06f, animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f))) togetherWith
+                        (slideOutHorizontally { it / 8 } + fadeOut(tween(140)) + scaleOut(targetScale = 0.88f, animationSpec = tween(170)))
                 } else {
-                    (slideInHorizontally { it } + fadeIn() + scaleIn(initialScale = 0.92f)) togetherWith (slideOutHorizontally { -it } + fadeOut() + scaleOut(targetScale = 0.92f))
+                    (slideInHorizontally { it / 10 } + fadeIn(tween(180)) + scaleIn(initialScale = 0.84f, animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f))) togetherWith
+                        (slideOutHorizontally { -it / 8 } + fadeOut(tween(140)) + scaleOut(targetScale = 1.06f, animationSpec = tween(170)))
                 }
             },
             label = "screen_transition"
@@ -360,7 +370,7 @@ private fun HomeScreen(
     val glowPulse by infinite.animateFloat(0.5f, 1f, infiniteRepeatable(tween(1200), RepeatMode.Reverse))
     val arrowBounce by infinite.animateFloat(0f, 8f, infiniteRepeatable(tween(600), RepeatMode.Reverse))
 
-    Column(Modifier.fillMaxSize().background(BgDeep)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(BgDark, BgDeep)))) {
         ResourceBar(player = player, towerLevel = towerLevel, onPremium = onPremium)
 
         if (version > 0 && message.isNotEmpty()) {
@@ -368,7 +378,8 @@ private fun HomeScreen(
                 message, color = messageColor, fontWeight = FontWeight.Bold, fontSize = 11.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 2.dp)
-                    .background(BgPanel, RoundedCornerShape(8.dp)).padding(4.dp)
+                    .background(Brush.verticalGradient(listOf(WoodLight, WoodDark)), RoundedCornerShape(8.dp))
+                    .border(1.dp, GoldBright.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).padding(4.dp)
             )
         }
 
@@ -537,14 +548,27 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
         val sweepX = (animTime * 14f) % (w + 320f) - 160f
         drawRect(Color.White.copy(alpha = 0.02f), topLeft = Offset(sweepX, centerY + 40f), size = Size(140f, h * 0.35f))
 
-        // Title with subtitle + pulsing underline
-        uiTextPaint().apply { textSize = h * 0.05f; typeface = android.graphics.Typeface.DEFAULT_BOLD; color = android.graphics.Color.argb(255, 26, 35, 126) }.let { p ->
-            drawContext.canvas.nativeCanvas.drawText("CLASH STRATEGY", w * 0.5f, h * 0.068f, p)
+        // Framed title keeps the village readable while matching the bold Clash-style logo treatment.
+        val titleTop = h * 0.014f
+        val titleW = w * 0.46f
+        val titleH = h * 0.09f
+        drawRoundRect(Color(0xAA1D170B), topLeft = Offset(w * 0.5f - titleW / 2f, titleTop), size = Size(titleW, titleH), cornerRadius = CornerRadius(14f))
+        drawRoundRect(Brush.verticalGradient(listOf(StoneLight, StoneDark)), topLeft = Offset(w * 0.5f - titleW / 2f + 2f, titleTop + 2f), size = Size(titleW - 4f, titleH - 4f), cornerRadius = CornerRadius(12f))
+        drawRoundRect(Brush.verticalGradient(listOf(WoodLight, WoodDark)), topLeft = Offset(w * 0.5f - titleW / 2f + 6f, titleTop + 6f), size = Size(titleW - 12f, titleH - 12f), cornerRadius = CornerRadius(9f))
+        val titlePaint = uiTextPaint().apply {
+            textSize = h * 0.042f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            style = Paint.Style.STROKE
+            strokeWidth = 5f
+            color = android.graphics.Color.rgb(44, 27, 9)
         }
-        uiTextPaint().apply { textSize = h * 0.016f; color = android.graphics.Color.argb(200, 69, 90, 100) }.let { p ->
-            drawContext.canvas.nativeCanvas.drawText("KINGDOM OF CHIEF KYLE", w * 0.5f, h * 0.095f, p)
+        drawContext.canvas.nativeCanvas.drawText("CLASH STRATEGY", w * 0.5f, titleTop + titleH * 0.57f, titlePaint)
+        titlePaint.style = Paint.Style.FILL
+        titlePaint.color = android.graphics.Color.rgb(255, 239, 179)
+        drawContext.canvas.nativeCanvas.drawText("CLASH STRATEGY", w * 0.5f, titleTop + titleH * 0.57f, titlePaint)
+        uiTextPaint().apply { textSize = h * 0.014f; color = android.graphics.Color.argb(235, 255, 235, 190) }.let { p ->
+            drawContext.canvas.nativeCanvas.drawText("KINGDOM OF CHIEF KYLE", w * 0.5f, titleTop + titleH * 0.82f, p)
         }
-        drawRect(Color(0xFFFFC107).copy(alpha = 0.5f + 0.3f * sin(animTime * 1.5f).toFloat()), topLeft = Offset(w * 0.5f - w * 0.16f, h * 0.078f), size = Size(w * 0.32f, 2f))
 
         // River with animated shimmer
         val riverPath = Path().apply {
@@ -595,6 +619,41 @@ private fun IsometricVillage(towerLevel: Int, arrowOffset: Float) {
 }
 
 private fun uiTextPaint(): Paint { return Paint().apply { textAlign = Paint.Align.CENTER; isAntiAlias = true } }
+
+@Composable
+private fun ClashTitlePlate(title: String, modifier: Modifier = Modifier) {
+    Canvas(modifier.fillMaxWidth().height(42.dp)) {
+        val outer = CornerRadius(size.height * 0.23f)
+        drawRoundRect(Color(0xFF1D170B), size = size, cornerRadius = outer)
+        drawRoundRect(
+            Brush.verticalGradient(listOf(StoneLight, StoneDark)),
+            topLeft = Offset(2f, 2f), size = Size(size.width - 4f, size.height - 4f),
+            cornerRadius = CornerRadius(size.height * 0.19f)
+        )
+        drawRoundRect(
+            Brush.verticalGradient(listOf(WoodLight, WoodDark)),
+            topLeft = Offset(6f, 5f), size = Size(size.width - 12f, size.height - 10f),
+            cornerRadius = CornerRadius(size.height * 0.13f)
+        )
+        drawRoundRect(
+            GoldBright.copy(alpha = 0.45f), topLeft = Offset(1f, 1f),
+            size = Size(size.width - 2f, size.height - 2f), cornerRadius = CornerRadius(size.height * 0.22f), style = Stroke(1.5f)
+        )
+        val paint = Paint().apply {
+            textAlign = Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textSize = size.height * 0.43f
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+            color = android.graphics.Color.rgb(46, 27, 8)
+        }
+        drawContext.canvas.nativeCanvas.drawText(title, size.width / 2f, size.height * 0.65f, paint)
+        paint.style = Paint.Style.FILL
+        paint.color = android.graphics.Color.rgb(255, 239, 181)
+        drawContext.canvas.nativeCanvas.drawText(title, size.width / 2f, size.height * 0.65f, paint)
+    }
+}
 
 private fun DrawScope.drawVillageRock(x: Float, y: Float, s: Float) {
     drawOval(Color(0xFF455A64), topLeft = Offset(x - 10f * s, y - 6f * s), size = Size(20f * s, 12f * s))
@@ -690,8 +749,8 @@ private fun DrawScope.drawVillageTree(x: Float, y: Float, animTime: Float) {
 private fun ResourceBar(player: Player, towerLevel: Int, onPremium: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().height(48.dp)
-            .background(Brush.verticalGradient(listOf(Color(0xFF3A2E1B), Color(0xFF1E1B12))))
-            .border(1.dp, Color(0xFFB08D3E))
+            .background(Brush.verticalGradient(listOf(Color(0xFF806238), Color(0xFF382917))))
+            .border(2.dp, Color(0xFFC49A45))
             .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -728,8 +787,8 @@ private fun ResourceBar(player: Player, towerLevel: Int, onPremium: () -> Unit) 
 @Composable
 private fun ResourcePill(icon: String, value: String, color: Color, iconRes: Int = 0, onClick: () -> Unit = {}) {
     Row(
-        Modifier.background(Brush.verticalGradient(listOf(BgCard, BgPanel)), RoundedCornerShape(8.dp))
-            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+        Modifier.background(Brush.verticalGradient(listOf(Color(0xFF26351E), Color(0xFF172416))), RoundedCornerShape(8.dp))
+            .border(1.dp, color.copy(alpha = 0.65f), RoundedCornerShape(8.dp))
             .clickable { onClick() }
             .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -755,12 +814,12 @@ private fun HeroesScreen(
     heroes: List<HeroData>, player: Player,
     onBack: () -> Unit, onHeroClick: (HeroData) -> Unit
 ) {
-    Column(Modifier.fillMaxSize().background(BgDeep).padding(12.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF476C38), Color(0xFF1A311D)))).padding(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            GlossyButton("◀ Back", 80.dp, 34.dp, listOf(BgPanelLight, BgPanel), onClick = onBack)
-            Spacer(Modifier.weight(1f))
-            Text("HEROES", color = TextGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(Modifier.weight(1f))
+            GlossyButton("◀", 44.dp, 36.dp, listOf(WoodLight, WoodDark), onClick = onBack)
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.weight(1f)) { ClashTitlePlate("TROOPS") }
+            Spacer(Modifier.width(6.dp))
             ResourcePill("💰", player.resources.toString(), GoldBright)
         }
         Spacer(Modifier.height(8.dp))
@@ -812,14 +871,14 @@ private fun HeroCard(hero: HeroData, onClick: () -> Unit) {
             .graphicsLayer { rotationY = tiltA; cameraDistance = 12f * density }
             .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = rarityColor.copy(alpha = 0.3f))
             .shadow(3.dp, RoundedCornerShape(12.dp), ambientColor = rarityColor.copy(alpha = 0.15f))
-            .background(Brush.verticalGradient(listOf(BgCard.copy(alpha = 0.95f), BgPanel.copy(alpha = 0.9f))), RoundedCornerShape(12.dp))
-            .border(1.5.dp, rarityColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+            .background(Brush.verticalGradient(listOf(TroopPurple.copy(alpha = 0.96f), TroopPurpleDark.copy(alpha = 0.98f))), RoundedCornerShape(12.dp))
+            .border(2.dp, rarityColor.copy(alpha = 0.82f), RoundedCornerShape(12.dp))
+            .border(0.75.dp, GoldBright.copy(alpha = 0.24f), RoundedCornerShape(12.dp))
             .clickable(interactionSource = interaction, indication = null) { onClick() }
             .padding(8.dp)
     ) {
         // Icon + Rarity badge with glass overlay
-        Box(Modifier.fillMaxWidth().height(80.dp).background(Brush.verticalGradient(listOf(rarityColor.copy(alpha = 0.12f), rarityColor.copy(alpha = 0.04f))), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().height(80.dp).background(Brush.verticalGradient(listOf(rarityColor.copy(alpha = 0.3f), Color(0xFF160A22).copy(alpha = 0.3f))), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
             if (spriteResId != 0) {
                 Image(
                     painter = painterResource(id = spriteResId),
@@ -1013,12 +1072,12 @@ private fun ShopScreen(
         ShopItemData("💎", "", "Gem Mine", "Produces gems", 500, "Rate", "10/h", RoyalBlue),
     )
 
-    Column(Modifier.fillMaxSize().background(BgDeep).padding(12.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF547A3E), Color(0xFF1E361F)))).padding(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            GlossyButton("◀ Back", 80.dp, 34.dp, listOf(BgPanelLight, BgPanel), onClick = onBack)
-            Spacer(Modifier.weight(1f))
-            Text("SHOP", color = TextGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(Modifier.weight(1f))
+            GlossyButton("◀", 44.dp, 36.dp, listOf(WoodLight, WoodDark), onClick = onBack)
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.weight(1f)) { ClashTitlePlate("ARMY SHOP") }
+            Spacer(Modifier.width(6.dp))
             ResourcePill("💰", player.resources.toString(), GoldBright)
         }
         Spacer(Modifier.height(6.dp))
@@ -1028,25 +1087,25 @@ private fun ShopScreen(
             tabs.forEachIndexed { i, t ->
                 Box(
                     Modifier.padding(horizontal = 2.dp)
-                        .background(if (tab == i) Brush.verticalGradient(listOf(GoldBright, GoldMedium)) else Brush.verticalGradient(listOf(BgCard, BgPanel)), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                        .border(1.dp, if (tab == i) GoldBright else Color.Transparent, RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        .background(if (tab == i) Brush.verticalGradient(listOf(MossGreen, MossGreenDark)) else Brush.verticalGradient(listOf(StoneLight, StoneDark)), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        .border(1.dp, if (tab == i) GoldBright else Color(0xFF5D4A2A), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                         .clickable { tab = i }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-                    Text(t, color = if (tab == i) BgDeep else TextGray, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                    Text(t, color = if (tab == i) TextWhite else Color(0xFF2B220F), fontWeight = FontWeight.Bold, fontSize = 10.sp)
                 }
             }
         }
 
-        Column(
-            Modifier.weight(1f).background(BgPanel).border(1.dp, GoldGlow).padding(8.dp),
+        LazyColumn(
+            Modifier.weight(1f).background(Brush.verticalGradient(listOf(Color(0xD85A482C), Color(0xE02D2618))).border(2.dp, Color(0xFFC49A45)).padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             when (tab) {
-                0 -> troopItems.forEach { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
-                1 -> spellItems.forEach { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
-                2 -> resourceItems.forEach { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
-                3 -> PremiumShopCard(onPremium = onPremium)
+                0 -> lazyItems(troopItems, key = { it.name }) { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
+                1 -> lazyItems(spellItems, key = { it.name }) { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
+                2 -> lazyItems(resourceItems, key = { it.name }) { item -> ShopItemCard(item = item, onBuy = { onBuy(item) }) }
+                3 -> item { PremiumShopCard(onPremium = onPremium) }
             }
         }
     }
@@ -1059,9 +1118,9 @@ private fun ShopItemCard(item: ShopItemData, onBuy: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
             .shadow(4.dp, RoundedCornerShape(10.dp), ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = item.accent.copy(alpha = 0.15f))
-            .background(Brush.verticalGradient(listOf(BgCard.copy(alpha = 0.95f), BgPanel.copy(alpha = 0.9f))), RoundedCornerShape(10.dp))
-            .border(1.dp, item.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xFF557B83), Color(0xFF2E4D52))), RoundedCornerShape(10.dp))
+            .border(2.dp, Color(0xFFD4C28A).copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+            .border(0.75.dp, item.accent.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1186,23 +1245,77 @@ private fun GemPackCard(gems: String, price: String, gemAmount: Int, onBuy: (Int
 
 // =================== CLAN SCREEN ===================
 @Composable
+private fun ClanWarMap() {
+    val infinite = rememberInfiniteTransition()
+    val warPulse by infinite.animateFloat(0.35f, 1f, infiniteRepeatable(tween(850), RepeatMode.Reverse))
+    Box(
+        Modifier.fillMaxWidth().height(126.dp)
+            .background(Brush.verticalGradient(listOf(ParchmentLight, Color(0xFFC7A667))), RoundedCornerShape(12.dp))
+            .border(2.dp, WoodDark, RoundedCornerShape(12.dp))
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            repeat(7) { i ->
+                val y = h * (0.18f + i * 0.11f)
+                drawLine(ParchmentDark.copy(alpha = 0.24f), Offset(0f, y), Offset(w, y - 8f), strokeWidth = 1f)
+            }
+            repeat(10) { i ->
+                val x = w * ((i * 37 % 100) / 100f)
+                val y = h * (0.25f + (i * 19 % 55) / 100f)
+                drawCircle(Color(0xFF5A7C34).copy(alpha = 0.55f), radius = 9f + i % 3 * 3f, center = Offset(x, y))
+                drawCircle(Color(0xFF7A9944).copy(alpha = 0.6f), radius = 5f + i % 2 * 2f, center = Offset(x - 3f, y - 3f))
+            }
+            val warTrail = Path().apply {
+                moveTo(w * 0.16f, h * 0.7f)
+                cubicTo(w * 0.3f, h * 0.3f, w * 0.58f, h * 0.82f, w * 0.82f, h * 0.38f)
+            }
+            drawPath(warTrail, Color(0xFF7A4D27).copy(alpha = 0.75f), style = Stroke(3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f))))
+            val friendly = Offset(w * 0.16f, h * 0.7f)
+            val enemy = Offset(w * 0.82f, h * 0.38f)
+            drawCircle(Color(0xFF245DA6).copy(alpha = 0.28f), radius = 22f, center = friendly)
+            drawCircle(Color(0xFF2469B1), radius = 12f, center = friendly)
+            drawCircle(Color.White.copy(alpha = 0.8f), radius = 5f, center = friendly)
+            drawCircle(Color(0xFFE53935).copy(alpha = 0.2f + warPulse * 0.25f), radius = 28f + warPulse * 10f, center = enemy)
+            drawCircle(Color(0xFFC62828), radius = 13f, center = enemy)
+            drawCircle(Color(0xFFFFD54F), radius = 5f, center = enemy)
+            val paint = Paint().apply {
+                textAlign = Paint.Align.CENTER
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                textSize = h * 0.12f
+                color = android.graphics.Color.rgb(67, 44, 21)
+                isAntiAlias = true
+            }
+            drawContext.canvas.nativeCanvas.drawText("DRAGON SLAYERS", friendly.x, friendly.y + 30f, paint)
+            drawContext.canvas.nativeCanvas.drawText("RIVAL CLAN", enemy.x, enemy.y + 31f, paint)
+        }
+        Text(
+            "CLAN WAR MAP", color = Color(0xFF392611), fontWeight = FontWeight.Bold, fontSize = 11.sp,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp)
+        )
+    }
+}
+
+@Composable
 private fun ClanScreen(
     guild: Guild, guildGate: GuildGate, player: Player,
     onBack: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().background(BgDeep).padding(12.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF5A743C), Color(0xFF263B20)))).padding(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            GlossyButton("◀ Back", 80.dp, 34.dp, listOf(BgPanelLight, BgPanel), onClick = onBack)
-            Spacer(Modifier.weight(1f))
-            Text("CLAN", color = TextGold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(Modifier.weight(1f))
+            GlossyButton("◀", 44.dp, 36.dp, listOf(WoodLight, WoodDark), onClick = onBack)
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.weight(1f)) { ClashTitlePlate("CLAN WAR") }
+            Spacer(Modifier.width(50.dp))
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
+        ClanWarMap()
+        Spacer(Modifier.height(8.dp))
 
         // Guild info card
         Column(
-            Modifier.fillMaxWidth().background(BgCard, RoundedCornerShape(12.dp))
-                .border(2.dp, RoyalBlue.copy(alpha = 0.5f), RoundedCornerShape(12.dp)).padding(16.dp)
+            Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(WoodLight, WoodDark)), RoundedCornerShape(12.dp))
+                .border(2.dp, Color(0xFFD1B56D), RoundedCornerShape(12.dp)).padding(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).background(RoyalBlue.copy(alpha = 0.2f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
@@ -1224,8 +1337,8 @@ private fun ClanScreen(
 
         guild.members.forEach { member ->
             Row(
-                Modifier.fillMaxWidth().background(BgCard, RoundedCornerShape(8.dp))
-                    .border(1.dp, BgPanelLight, RoundedCornerShape(8.dp)).padding(10.dp),
+                Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(StoneLight, StoneDark)), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color(0xFF4A3A22), RoundedCornerShape(8.dp)).padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(Modifier.size(36.dp).background(RoyalBlue.copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
@@ -1233,10 +1346,10 @@ private fun ClanScreen(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(member.username, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text("Resources: ${member.resources}", color = TextGray, fontSize = 10.sp)
+                    Text(member.username, color = Color(0xFF302613), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Resources: ${member.resources}", color = Color(0xFF5A472C), fontSize = 10.sp)
                 }
-                Text("💰 ${member.resources}", color = GoldBright, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text("💰 ${member.resources}", color = Color(0xFF755000), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(4.dp))
         }
@@ -1332,28 +1445,35 @@ private fun BottomNavBar(
 ) {
     Row(
         Modifier.fillMaxWidth().height(52.dp)
-            .background(Brush.verticalGradient(listOf(Color(0xFF4A3A20), Color(0xFF2E2413))))
-            .border(1.dp, Color(0xFFB08D3E))
+            .background(Brush.verticalGradient(listOf(Color(0xFF765B32), Color(0xFF342716))))
+            .border(2.dp, Color(0xFFC49A45))
             .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
         NavItem(R.drawable.ic_battle, "Attack", currentScreen == "attack", onAttack)
         NavItem(R.drawable.ic_heroes, "Heroes", currentScreen == "heroes", onHeroes)
-        NavItem(R.drawable.ic_home, "Home", currentScreen == "home", onAttack)
+        NavItem(R.drawable.ic_home, "Home", currentScreen == "home", {})
         NavItem(R.drawable.ic_shop, "Shop", currentScreen == "shop", onShop)
-        NavItem(R.drawable.ic_settings, "Settings", currentScreen == "settings", {})
+        NavItem(R.drawable.ic_settings, "Clan", currentScreen == "clan", onClan)
     }
 }
 
 @Composable
 private fun NavItem(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit) {
-    val bgColor = if (selected) GoldBright.copy(alpha = 0.15f) else Color.Transparent
-    val borderColor = if (selected) GoldBright else Color.Transparent
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.88f else if (selected) 1.06f else 1f, spring(dampingRatio = 0.55f, stiffness = 380f))
+    val background = if (selected) {
+        Brush.verticalGradient(listOf(Color(0xFF4FA3D2), Color(0xFF1E5D8F)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFF6C5330), Color(0xFF443319)))
+    }
+    val borderColor = if (selected) Color(0xFFEED178) else Color(0xFF241807)
 
     Column(
-        Modifier.background(bgColor, RoundedCornerShape(8.dp)).border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable { onClick() }.padding(horizontal = 8.dp, vertical = 3.dp),
+        Modifier.scale(scale).background(background, RoundedCornerShape(8.dp)).border(if (selected) 2.dp else 1.dp, borderColor, RoundedCornerShape(8.dp))
+            .clickable(interactionSource = interaction, indication = null) { onClick() }.padding(horizontal = 8.dp, vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
@@ -1362,7 +1482,7 @@ private fun NavItem(iconRes: Int, label: String, selected: Boolean, onClick: () 
             modifier = Modifier.size(22.dp),
             contentScale = ContentScale.Fit
         )
-        Text(label, color = if (selected) GoldBright else TextGray, fontSize = 8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Text(label, color = if (selected) Color.White else Color(0xFFF0DDB3), fontSize = 8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }
 }
 
@@ -1377,21 +1497,26 @@ private fun GlossyButton(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.92f else 1f, spring(dampingRatio = 0.45f, stiffness = 280f))
+    val shape = RoundedCornerShape(12.dp)
 
     Box(
         Modifier.width(width).height(height).scale(scale)
-            .graphicsLayer { rotationX = if (pressed) 6f else 0f; rotationY = if (pressed) -3f else 0f }
-            .shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Color.Black.copy(alpha = 0.4f), spotColor = Color.Black.copy(alpha = 0.3f))
-            .shadow(3.dp, RoundedCornerShape(12.dp), ambientColor = gradient.first().copy(alpha = 0.2f))
-            .background(Brush.verticalGradient(listOf(gradient.first(), gradient.last())), RoundedCornerShape(12.dp))
-            .border(1.5.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+            .graphicsLayer { rotationX = if (pressed) 7f else 0f; rotationY = if (pressed) -3f else 0f; cameraDistance = 8f * density }
+            .shadow(8.dp, shape, ambientColor = Color.Black.copy(alpha = 0.45f), spotColor = Color.Black.copy(alpha = 0.35f))
+            .background(gradient.last().copy(alpha = 0.96f), shape)
+            .border(2.dp, Color(0xFF2A1808), shape)
             .clickable(interactionSource = interaction, indication = null) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        // Glass highlight on top
-        Box(Modifier.fillMaxWidth().height(height * 0.45f).background(
-            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.18f), Color.Transparent)),
-            RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+        // The darker base and raised face create the chunky button depth used by the reference UI.
+        Box(
+            Modifier.align(Alignment.TopCenter).padding(horizontal = 2.dp, vertical = 2.dp)
+                .fillMaxWidth().height(height * 0.76f)
+                .background(Brush.verticalGradient(listOf(gradient.first(), gradient.last())), RoundedCornerShape(10.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+        )
+        Box(Modifier.align(Alignment.TopCenter).padding(start = 5.dp, top = 4.dp, end = 5.dp).fillMaxWidth().height(height * 0.28f).background(
+            Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent)), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
         ))
         if (glowAlpha > 0f) {
             Canvas(Modifier.fillMaxSize()) {
