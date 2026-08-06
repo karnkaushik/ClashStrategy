@@ -1098,7 +1098,10 @@ private fun ShopScreen(
         }
 
         LazyColumn(
-            Modifier.weight(1f).background(Brush.verticalGradient(listOf(Color(0xD85A482C), Color(0xE02D2618))).border(2.dp, Color(0xFFC49A45)).padding(8.dp),
+            Modifier.weight(1f)
+                .background(Brush.verticalGradient(listOf(Color(0xD85A482C), Color(0xE02D2618))))
+                .border(2.dp, Color(0xFFC49A45))
+                .padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             when (tab) {
